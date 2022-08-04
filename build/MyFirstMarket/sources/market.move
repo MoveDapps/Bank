@@ -1,6 +1,6 @@
 module market_address::market {
     use sui::balance::Balance;
-    //use sui::coin::{Self, Coin};
+    use sui::coin::{Self, Coin};
     use sui::object::{Self, ID, Info};
     use sui::tx_context::TxContext;
     use sui::vec_map::{Self, VecMap};
@@ -30,7 +30,6 @@ module market_address::market {
         let lendingPool = LendingPool {
             info: info,
             poolBalance: vec_map::empty(),
-            //coin::into_balance(coin::zero(ctx)),
         };
 
         let poolInfo = PoolInfo {
@@ -42,7 +41,8 @@ module market_address::market {
         transfer::transfer(poolInfo, tx_context::sender(ctx));
     }
 
-    //public entry fun deposit(payment: Coin<SUI>, ctx: &mut TxContext) {
-    //    coin::put(&mut self.to_lend, coin);
-    //}
+    public entry fun deposit(lendingPool: &mut LendingPool, depositCoin: Coin<SUI>, ctx: &mut TxContext) {
+        use sui::tx_context;
+        vec_map::insert(&mut lendingPool.poolBalance, tx_context::sender(ctx), coin::into_balance(depositCoin));
+    }
 }
