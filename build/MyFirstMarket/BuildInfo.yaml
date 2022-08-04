@@ -5,7 +5,7 @@ compiled_package_info:
     market_address: "0000000000000000000000000000000000000000"
     std: "0000000000000000000000000000000000000001"
     sui: "0000000000000000000000000000000000000002"
-  source_digest: 6D7B4CA42F93A8BD65806DAB1242A0CB03C7E48FA38E9C2FD61F59024D58F6F4
+  source_digest: 1AB2312928D48F2016F6AFA3D412D6814B9DE4649EA3076FB57D41B6E928F0D3
   build_flags:
     dev_mode: false
     test_mode: false
@@ -15,7 +15,7 @@ compiled_package_info:
     force_recompilation: false
     additional_named_addresses: {}
     architecture: ~
-    only_deps: false
+    fetch_deps_only: false
 dependencies:
   - MoveStdlib
   - Sui
