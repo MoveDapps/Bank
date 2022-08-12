@@ -6,6 +6,8 @@ module market_address::market {
     use sui::vec_map::{Self, VecMap};
     use sui::sui::SUI;
 
+    //use std::debug;
+
     const BORROW_UTILIZATION: u64 = 50;
     const EBorrowTooBig: u64 = 100;
     
@@ -83,14 +85,17 @@ module market_address::market {
         let deposit_balance = get_pool_balance_by_address(lending_pool, borrower_address);
 
         let borrowed_balance;
-        if(!vec_map::contains(&lending_pool.pool_balance_records, borrower_address)) {
+        if(!vec_map::contains(&lending_pool.pool_borrow_records, borrower_address)) {
             borrowed_balance = 0u64;
         }
         else {
-            borrowed_balance = *vec_map::get(&lending_pool.pool_balance_records, borrower_address);
+            borrowed_balance = *vec_map::get(&lending_pool.pool_borrow_records, borrower_address);
         };
 
         let limit: u64 = (deposit_balance * BORROW_UTILIZATION) / 100;
+
+        //debug::print(&borrowed_balance);
+        //debug::print(&limit);
 
         limit - borrowed_balance
     }
@@ -141,6 +146,7 @@ module market_address::market {
     public fun test_module_init() {
         use sui::test_scenario;
         use sui::coin;
+        use sui::transfer;
 
         let initializer = @0xABBA;
         let random = @0xABBB;
@@ -176,6 +182,30 @@ module market_address::market {
 
             assert!(get_total_pool_balance(lending_pool) == 55, 1);
 
+            test_scenario::return_shared(scenario, lending_pool_wrapper);
+            test_scenario::return_owned(scenario, pool_info);
+        };
+
+        // test borrowing.
+        test_scenario::next_tx(scenario, &initializer);
+        {
+            let pool_info = test_scenario::take_owned<PoolInfo>(scenario);
+            let lending_pool_wrapper = test_scenario::take_shared<LendingPool>(scenario);
+            
+            let lending_pool = test_scenario::borrow_mut(&mut lending_pool_wrapper);
+            assert!(*object::info_id(&lending_pool.info) == pool_id(&pool_info), 1);
+            
+            // check that initializer balance is eual to the two deposits.
+            assert!(get_pool_balance_by_address(lending_pool, &initializer) == 55, 1);
+            // check that a random address has 0 deposits.
+            assert!(get_pool_balance_by_address(lending_pool, &random) == 0, 1);
+
+            assert!(get_total_pool_balance(lending_pool) == 55, 1);
+
+            let borrowed_fund = borrow(lending_pool, 23, test_scenario::ctx(scenario));
+            assert!(get_total_pool_balance(lending_pool) == 55 - 23, 1);
+
+            transfer::transfer(borrowed_fund, initializer);
             test_scenario::return_shared(scenario, lending_pool_wrapper);
             test_scenario::return_owned(scenario, pool_info);
         };
