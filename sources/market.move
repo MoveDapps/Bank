@@ -30,8 +30,12 @@ module market_address::market {
         self.lending_pool_id
     }
 
+    public fun lending_pool_info(self: &LendingPool): ID {
+        *object::info_id(&self.info)
+    }
+
     // Module initializer to be executed when this module is published.
-    fun init(ctx: &mut TxContext) {
+    public fun initialize(ctx: &mut TxContext) {
         use sui::transfer;
         use sui::tx_context;
 
@@ -141,7 +145,7 @@ module market_address::market {
     public fun get_total_pool_balance(lending_pool: &LendingPool): u64 {
         balance::value(&lending_pool.pool_balance)
     }
-
+/*
     #[test]
     public fun test_module_init() {
         use sui::test_scenario;
@@ -210,4 +214,5 @@ module market_address::market {
             test_scenario::return_owned(scenario, pool_info);
         };
     }
+*/
 }
