@@ -27,7 +27,7 @@ module market_address::market {
         let info = object::new(ctx);
         let lending_pool_id = *object::info_id(&info);
 
-        let lending_pool = data::create_lending_pool (
+        let lending_pool = data::create_lending_pool<SUI> (
             info,
             balance::zero(),
             vec_map::empty(),
@@ -42,7 +42,7 @@ module market_address::market {
 
     // Deposit SUI coins to the Lending Pool.
     public entry fun deposit(
-        lending_pool: &mut LendingPool,
+        lending_pool: &mut LendingPool<SUI>,
         deposit_coin: Coin<SUI>,
         ctx: &mut TxContext
     ) {
@@ -51,7 +51,7 @@ module market_address::market {
 
     // Borrow SUI coins from the Lending Pool.
     public fun borrow(
-        lending_pool: &mut LendingPool,
+        lending_pool: &mut LendingPool<SUI>,
         borrow_amount: u64,
         ctx: &mut TxContext
     ): Coin<SUI> {

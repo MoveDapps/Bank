@@ -24,7 +24,7 @@ module market_address::market_test {
         test_scenario::next_tx(scenario, &initializer);
         {
             let pool_info = test_scenario::take_owned<PoolInfo>(scenario);
-            let lending_pool_wrapper = test_scenario::take_shared<LendingPool>(scenario);
+            let lending_pool_wrapper = test_scenario::take_shared<LendingPool<SUI>>(scenario);
             
             let lending_pool = test_scenario::borrow_mut(&mut lending_pool_wrapper);
             assert!(data::get_lending_pool_id(lending_pool) == data::get_pool_id(&pool_info), 1);
@@ -52,7 +52,7 @@ module market_address::market_test {
         test_scenario::next_tx(scenario, &initializer);
         {
             let pool_info = test_scenario::take_owned<PoolInfo>(scenario);
-            let lending_pool_wrapper = test_scenario::take_shared<LendingPool>(scenario);
+            let lending_pool_wrapper = test_scenario::take_shared<LendingPool<SUI>>(scenario);
             
             let lending_pool = test_scenario::borrow_mut(&mut lending_pool_wrapper);
             assert!(data::get_lending_pool_id(lending_pool) == data::get_pool_id(&pool_info), 1);
