@@ -16,7 +16,7 @@ module market_address::market {
     use sui::sui::SUI;
     use sui::transfer;
 
-    use market_address::data::{Self, LendingPool};
+    use market_address::data::{Self, MoneyMarket};
 
     // Percentage of the deposit value that can be borrowed. Will be dynamic eventually.
     const BORROW_UTILIZATION: u64 = 50;
@@ -25,36 +25,36 @@ module market_address::market {
     // Method to be executed when this module is published.
     public fun initialize(ctx: &mut TxContext) {
         let info = object::new(ctx);
-        let lending_pool_id = *object::info_id(&info);
+        let money_market_id = *object::info_id(&info);
 
-        let lending_pool = data::create_lending_pool<SUI> (
+        let money_market = data::create_money_market<SUI> (
             info,
             balance::zero(),
             vec_map::empty(),
             vec_map::empty(),
         );
 
-        let pool_info = data::create_pool_info(object::new(ctx), lending_pool_id);
+        let money_market_info = data::create_money_market_info(object::new(ctx), money_market_id);
         
-        transfer::share_object(lending_pool);
-        transfer::transfer(pool_info, tx_context::sender(ctx));
+        transfer::share_object(money_market);
+        transfer::transfer(money_market_info, tx_context::sender(ctx));
     }
 
     // Deposit SUI coins to the Lending Pool.
     public entry fun deposit(
-        lending_pool: &mut LendingPool<SUI>,
+        money_market: &mut MoneyMarket<SUI>,
         deposit_coin: Coin<SUI>,
         ctx: &mut TxContext
     ) {
-        data::deposit(lending_pool, deposit_coin, ctx);
+        data::deposit(money_market, deposit_coin, ctx);
     }
 
     // Borrow SUI coins from the Lending Pool.
     public fun borrow(
-        lending_pool: &mut LendingPool<SUI>,
+        money_market: &mut MoneyMarket<SUI>,
         borrow_amount: u64,
         ctx: &mut TxContext
     ): Coin<SUI> {
-        data::borrow(lending_pool, borrow_amount, ctx)
+        data::borrow(money_market, borrow_amount, ctx)
     }
 }
