@@ -8,11 +8,8 @@
  */
 
 module market_address::market {
-    use sui::balance::{Self};
     use sui::coin::{Coin};
-    use sui::object::{Self};
     use sui::tx_context::{Self, TxContext};
-    use sui::vec_map::{Self};
     use sui::sui::SUI;
     use sui::transfer;
 
@@ -24,18 +21,7 @@ module market_address::market {
 
     // Method to be executed when this module is published.
     public fun initialize(ctx: &mut TxContext) {
-        let info = object::new(ctx);
-        let money_market_id = *object::info_id(&info);
-
-        let money_market = data::create_money_market<SUI> (
-            info,
-            balance::zero(),
-            vec_map::empty(),
-            vec_map::empty(),
-        );
-
-        let money_market_info = data::create_money_market_info(object::new(ctx), money_market_id);
-        
+        let (money_market, money_market_info) = data::create_money_market<SUI>(ctx);
         transfer::share_object(money_market);
         transfer::transfer(money_market_info, tx_context::sender(ctx));
     }

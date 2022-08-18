@@ -26,17 +26,24 @@ module market_address::data {
         money_market_id: ID,
     }
 
-    public fun create_money_market<TYPE>(
-        info: Info,
-        pool_balance: Balance<TYPE>,
-        pool_deposit_records: VecMap<address, u64>,
-        pool_borrow_records: VecMap<address, u64>,
-    ) : MoneyMarket<TYPE> {
-        MoneyMarket {info, pool_balance, pool_deposit_records, pool_borrow_records}
-    }
+    public fun create_money_market<TYPE>(ctx: &mut TxContext)
+    : (MoneyMarket<TYPE>, MoneyMarketInfo) {
+        let info = object::new(ctx);
+        let money_market_id = *object::info_id(&info);
+        
+        let money_market = MoneyMarket<TYPE>{
+            info: info,
+            pool_balance: balance::zero(),
+            pool_deposit_records: vec_map::empty(),
+            pool_borrow_records: vec_map::empty()
+        };
 
-    public fun create_money_market_info (info: Info, money_market_id: ID): MoneyMarketInfo {
-        MoneyMarketInfo {info, money_market_id}
+        let money_market_info = MoneyMarketInfo{
+            info: object::new(ctx),
+            money_market_id: money_market_id
+        };
+
+        (money_market, money_market_info)
     }
 
     /* ==== Reads start here ==== */
