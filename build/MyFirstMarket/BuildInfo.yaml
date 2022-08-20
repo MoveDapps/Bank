@@ -5,10 +5,10 @@ compiled_package_info:
     market_address: "0000000000000000000000000000000000000000"
     std: "0000000000000000000000000000000000000001"
     sui: "0000000000000000000000000000000000000002"
-  source_digest: 0D235137817FE416D416C07F0C44FBA613D4D57ED0959B663939B50F3A8E5245
+  source_digest: 5726D44D150F89F75FFF93481F863F491950B5EE43B0CA20A630924F2CBCFD4A
   build_flags:
-    dev_mode: true
-    test_mode: true
+    dev_mode: false
+    test_mode: false
     generate_docs: false
     generate_abis: false
     install_dir: ~
