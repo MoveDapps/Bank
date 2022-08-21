@@ -1,10 +1,12 @@
 module market_address::market {
+    use std::errors;
+    use std::vector::{Self};
+
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
     use sui::object::{Self, ID, UID};
     use sui::balance::{Self, Balance};
     use sui::coin::{Self, Coin};
-    use std::errors;
     use sui::vec_set::{Self, VecSet};
     use sui::vec_map::{Self, VecMap};
 
@@ -12,7 +14,8 @@ module market_address::market {
 
     struct Market has key {
         id: UID,
-        submarket_ids: VecSet<ID>
+        submarket_ids: VecSet<ID>,
+        borrow_record_ids: vector<ID>
     }
 
     struct SubMarket<phantom T> has key {
@@ -32,6 +35,13 @@ module market_address::market {
         utilized: u64
     }
 
+    // Borrow records to run liquidation against.
+    struct BorrowRecord<phantom B, phantom C> has key {
+        id: UID,
+        col_amount: u64,
+        bor_amount: u64
+    }
+
     /* Error codes */
     const EAdminOnly: u64 = 1;
     const EChildObjectOnly: u64 = 2;
@@ -40,9 +50,14 @@ module market_address::market {
     const EBorrowTooBig: u64 = 5;
     const ECollateralTooBig: u64 = 6;
     const ENotEnoughCollateral: u64 = 7;
+    const EInvalidSender: u64 = 8;
 
     public entry fun create_market(ctx: &mut TxContext) {
-        let market = Market{id: object::new(ctx), submarket_ids: vec_set::empty()};
+        let market = Market{
+            id: object::new(ctx),
+            submarket_ids: vec_set::empty(),
+            borrow_record_ids: vector::empty()
+        };
         let admin_cap = AdminCap{id: object::new(ctx), market_id: get_market_id(&market)};
         
         // Share market globally, so that anyone can deposit or borrow.
@@ -83,7 +98,7 @@ module market_address::market {
     // B type coin will be borrowed against C collateral.
     public fun borrow<B, C>(
         bor_amount: u64, col_amount: u64,
-        bor_market: &mut SubMarket<B>, col_market: &SubMarket<C>, market: &Market, ctx: &mut TxContext
+        bor_market: &mut SubMarket<B>, col_market: &mut SubMarket<C>, market: &mut Market, ctx: &mut TxContext
     ) : Coin<B> {
         // Check if submarkets are owned by market.
         check_child(market, bor_market);
@@ -100,8 +115,19 @@ module market_address::market {
         let minimum_required_col = calculator::required_collateral_amount<B, C>(bor_amount);
         assert!(col_amount >= minimum_required_col, errors::invalid_argument(ENotEnoughCollateral));
 
-        // TODO record new col utitilization
-        // TODO create borrow record inside marker object
+        record_new_utilization(&mut col_market.collaterals, &tx_context::sender(ctx), col_amount);
+ 
+        // Create borrow record for liquidation bot.
+        let borrow_record = BorrowRecord<B, C> {
+            id: object::new(ctx),
+            col_amount: col_amount,
+            bor_amount: bor_amount
+        };
+
+        // The borrow record should be owned by and recorded inside the market.
+        vector::push_back(&mut market.borrow_record_ids, object::uid_to_inner(&borrow_record.id));
+        transfer::transfer_to_object(borrow_record, market);
+
         coin::take(&mut bor_market.balance, col_amount, ctx)
     }
 
@@ -126,6 +152,14 @@ module market_address::market {
 
         let col_data = vec_map::get_mut(collaterals, &sender);
         col_data.gross = col_data.gross + value;
+    }
+
+    fun record_new_utilization(collaterals: &mut VecMap<address, ColData>, sender: &address, value: u64) {
+        assert!(vec_map::contains(collaterals, sender) == true, errors::invalid_argument(EInvalidSender));
+        let col_data = vec_map::get_mut(collaterals, sender);
+        
+        assert!(col_data.gross >= value + col_data.utilized, errors::invalid_argument(ECollateralTooBig));
+        col_data.utilized = col_data.utilized + value;
     }
 
     /* === Reads === */
