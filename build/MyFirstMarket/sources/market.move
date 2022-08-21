@@ -8,6 +8,8 @@ module market_address::market {
     use sui::vec_set::{Self, VecSet};
     use sui::vec_map::{Self, VecMap};
 
+    use market_address::calculator::{Self};
+
     struct Market has key {
         id: UID,
         submarket_ids: VecSet<ID>
@@ -34,6 +36,10 @@ module market_address::market {
     const EAdminOnly: u64 = 1;
     const EChildObjectOnly: u64 = 2;
     const EValidCollateralOnly: u64 = 3;
+    const EInvalidColData: u64 = 4;
+    const EBorrowTooBig: u64 = 5;
+    const ECollateralTooBig: u64 = 6;
+    const ENotEnoughCollateral: u64 = 7;
 
     public entry fun create_market(ctx: &mut TxContext) {
         let market = Market{id: object::new(ctx), submarket_ids: vec_set::empty()};
@@ -74,6 +80,31 @@ module market_address::market {
         add_col_value(&mut sub_market.collaterals, tx_context::sender(ctx), collateral_value);
     }
 
+    // B type coin will be borrowed against C collateral.
+    public fun borrow<B, C>(
+        bor_amount: u64, col_amount: u64,
+        bor_market: &mut SubMarket<B>, col_market: &SubMarket<C>, market: &Market, ctx: &mut TxContext
+    ) : Coin<B> {
+        // Check if submarkets are owned by market.
+        check_child(market, bor_market);
+        check_child(market, col_market);
+
+        // Check if borrow market has enough funds.
+        assert!(balance::value(&bor_market.balance) >= bor_amount, errors::invalid_argument(EBorrowTooBig));
+
+        let unused_col = get_unused_col(&tx_context::sender(ctx), col_market);
+        // Check if there's enough unused collateral.
+        assert!(unused_col >= col_amount, errors::invalid_argument(ECollateralTooBig));
+        
+        // Check that col_amount is greater or equal to minimum required collateral.
+        let minimum_required_col = calculator::required_collateral_amount<B, C>(bor_amount);
+        assert!(col_amount >= minimum_required_col, errors::invalid_argument(ENotEnoughCollateral));
+
+        // TODO record new col utitilization
+        // TODO create borrow record inside marker object
+        coin::take(&mut bor_market.balance, col_amount, ctx)
+    }
+
     /* === Utils === */
     fun check_admin(market: &Market, admin_cap: &AdminCap) {
         assert!(object::borrow_id(market) == &admin_cap.market_id, errors::invalid_argument(EAdminOnly));
@@ -86,6 +117,7 @@ module market_address::market {
         )
     }
 
+    // Adds to collateral gross value.
     fun add_col_value(collaterals: &mut VecMap<address, ColData>, sender: address, value: u64) {
         if(!vec_map::contains(collaterals, &sender)) {
             let col_data = ColData{gross: 0, utilized: 0};
@@ -103,5 +135,20 @@ module market_address::market {
 
     fun get_submarket_id<T>(sub_market: &SubMarket<T>) : ID {
         object::uid_to_inner(&sub_market.id)
+    }
+
+    fun get_unused_col<T>(sender: &address, sub_market: &SubMarket<T>) : u64 {
+        // Return immediately if sender doesn't have a collateral is this sub market.
+        if(!vec_map::contains(&sub_market.collaterals, sender)) {
+            0u64
+        } else {
+            let col_data = vec_map::get(&sub_market.collaterals, sender);
+        
+            assert!(col_data.gross >= col_data.utilized, errors::invalid_state(EInvalidColData));
+            assert!(col_data.gross > 0, errors::invalid_state(EInvalidColData));
+            assert!(col_data.utilized >= 0, errors::invalid_state(EInvalidColData));
+
+            col_data.gross - col_data.utilized
+        }
     }
 }
