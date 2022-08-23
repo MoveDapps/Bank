@@ -143,6 +143,14 @@ module market_address::market {
         )
     }
 
+    #[test_only]
+    public fun check_child_test<T>(market: &Market, sub_market: &SubMarket<T>) {
+        assert!(
+            vec_set::contains(&market.submarket_ids, &get_submarket_id(sub_market)) == true,
+            errors::invalid_argument(EChildObjectOnly)
+        )
+    }
+
     // Adds to collateral gross value.
     fun add_col_value(collaterals: &mut VecMap<address, ColData>, sender: address, value: u64) {
         if(!vec_map::contains(collaterals, &sender)) {
@@ -163,8 +171,13 @@ module market_address::market {
     }
 
     /* === Reads === */
-    fun get_market_id(market: &Market) : ID {
+    public fun get_market_id(market: &Market) : ID {
         object::uid_to_inner(&market.id)
+    }
+
+    #[test_only]
+    public fun get_admincap_marketid(admin_cap: &AdminCap) : ID {
+        admin_cap.market_id
     }
 
     fun get_submarket_id<T>(sub_market: &SubMarket<T>) : ID {
