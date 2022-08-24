@@ -1,9 +1,9 @@
 [package]
-name = "MyFirstMarket"
+name = "Mala"
 version = "0.0.1"
 
 [dependencies]
 Sui = { local = "../sui/crates/sui-framework" }
 
 [addresses]
-market_address = "0x0"
+mala = "0x0"

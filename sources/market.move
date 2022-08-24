@@ -1,4 +1,4 @@
-module market_address::market {
+module mala::market {
     use std::errors;
     use std::vector::{Self};
     //use std::debug;
@@ -11,7 +11,7 @@ module market_address::market {
     use sui::vec_set::{Self, VecSet};
     use sui::vec_map::{Self, VecMap};
 
-    use market_address::calculator::{Self};
+    use mala::calculator::{Self};
 
     struct Market has key {
         id: UID,

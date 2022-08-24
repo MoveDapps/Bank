@@ -1,10 +1,10 @@
 #[test_only]
-module market_address::market_test {
+module mala::market_test {
     use sui::sui::SUI;
     use sui::object::ID;
     use sui::test_scenario::{Self, Scenario, SharedWrapper};
 
-    use market_address::market::{Self, Market, SubMarket, AdminCap};
+    use mala::market::{Self, Market, SubMarket, AdminCap};
 
     #[test]
     public fun test_market_creation() {

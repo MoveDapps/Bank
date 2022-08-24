@@ -1,5 +1,5 @@
-module market_address::calculator {
-    use market_address::oracle;
+module mala::calculator {
+    use mala::oracle;
 
     const CollateralMultiplier: u64 = 2;
 
