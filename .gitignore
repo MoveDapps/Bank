@@ -351,3 +351,6 @@ MigrationBackup/
 
 *.log.*
 *.mv
+*.mvsm
+source_maps/*
+bytecode_modules/*
