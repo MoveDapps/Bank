@@ -1,6 +1,7 @@
 module market_address::market {
     use std::errors;
     use std::vector::{Self};
+    //use std::debug;
 
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
@@ -77,7 +78,10 @@ module market_address::market {
         check_admin(market, admin_cap);
         // SubMarket objects are owned by Market objects.
         vec_set::insert(&mut market.submarket_ids, get_submarket_id<T>(&sub_market));
-        transfer::transfer_to_object(sub_market, market);
+        
+        // keeping submarket global for now
+        transfer::share_object(sub_market);
+        //transfer::transfer_to_object(sub_market, market);
     }
 
     public entry fun deposit_collateral<T>(
@@ -136,15 +140,7 @@ module market_address::market {
         assert!(object::borrow_id(market) == &admin_cap.market_id, errors::invalid_argument(EAdminOnly));
     }
 
-    fun check_child<T>(market: &Market, sub_market: &SubMarket<T>) {
-        assert!(
-            vec_set::contains(&market.submarket_ids, &get_submarket_id(sub_market)) == true,
-            errors::invalid_argument(EChildObjectOnly)
-        )
-    }
-
-    #[test_only]
-    public fun check_child_test<T>(market: &Market, sub_market: &SubMarket<T>) {
+    public fun check_child<T>(market: &Market, sub_market: &SubMarket<T>) {
         assert!(
             vec_set::contains(&market.submarket_ids, &get_submarket_id(sub_market)) == true,
             errors::invalid_argument(EChildObjectOnly)
