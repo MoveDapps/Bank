@@ -1,7 +1,5 @@
 #[test_only]
 module market_address::market_test {
-    use std::debug;
-
     use sui::sui::SUI;
     use sui::object::ID;
     use sui::test_scenario::{Self, Scenario, SharedWrapper};
@@ -40,13 +38,12 @@ module market_address::market_test {
             let (market_wrapper, admin_cap) = get_market(scenario);
             let market = test_scenario::borrow_mut(&mut market_wrapper);
 
-            let sub_market_wrapper =
-                test_scenario::take_shared<SubMarket<SUI>>(scenario);
-            let sub_market = test_scenario::borrow_mut(&mut sub_market_wrapper);
+            let sub_market = test_scenario::take_child_object<Market, SubMarket<SUI>>(scenario, market);
 
-            market::check_child<SUI>(market, sub_market);
+            market::check_child<SUI>(market, &sub_market);
            
-            test_scenario::return_shared(scenario, sub_market_wrapper);
+            // using return_owned even though the child is not owned
+            test_scenario::return_owned(scenario, sub_market);
             return_market(scenario, market_wrapper, admin_cap);
         };
     }
@@ -70,8 +67,6 @@ module market_address::market_test {
             admin_cap_1_id = market::get_admincap_id(&admin_cap);
             test_scenario::return_owned(scenario, admin_cap);
         };
-
-        debug::print(&admin_cap_1_id);
 
         // Create Market 2.
         test_scenario::next_tx(scenario, &sender);
@@ -98,16 +93,6 @@ module market_address::market_test {
         let market_wrapper = test_scenario::take_shared<Market>(scenario);
         let admin_cap = test_scenario::take_owned<AdminCap>(scenario);
         (market_wrapper, admin_cap)
-    }
-
-    fun get_last_created_market_id(scenario: &mut Scenario): ID {
-        let market_wrapper = test_scenario::take_last_created_shared(scenario);
-        let market = test_scenario::borrow_mut(&mut market_wrapper);
-        let market_id = market::get_market_id(market);
-
-        test_scenario::return_shared(scenario, market_wrapper);
-        
-        market_id
     }
 
     fun return_market(scenario: &mut Scenario, market_wrapper: SharedWrapper<Market>, admin_cap: AdminCap) {

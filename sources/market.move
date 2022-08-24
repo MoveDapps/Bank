@@ -80,8 +80,8 @@ module market_address::market {
         vec_set::insert(&mut market.submarket_ids, get_submarket_id<T>(&sub_market));
         
         // keeping submarket global for now
-        transfer::share_object(sub_market);
-        //transfer::transfer_to_object(sub_market, market);
+        //transfer::share_object(sub_market);
+        transfer::transfer_to_object(sub_market, market);
     }
 
     public entry fun deposit_collateral<T>(
