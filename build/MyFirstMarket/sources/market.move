@@ -137,7 +137,8 @@ module market_address::market {
 
     /* === Utils === */
     fun check_admin(market: &Market, admin_cap: &AdminCap) {
-        assert!(object::borrow_id(market) == &admin_cap.market_id, errors::invalid_argument(EAdminOnly));
+        //assert!(object::borrow_id(market) == &admin_cap.market_id, errors::invalid_argument(EAdminOnly));
+        assert!(object::borrow_id(market) == &admin_cap.market_id, EAdminOnly);
     }
 
     public fun check_child<T>(market: &Market, sub_market: &SubMarket<T>) {
@@ -174,6 +175,11 @@ module market_address::market {
     #[test_only]
     public fun get_admincap_marketid(admin_cap: &AdminCap) : ID {
         admin_cap.market_id
+    }
+
+    #[test_only]
+    public fun get_admincap_id(admin_cap: &AdminCap) : ID {
+        object::uid_to_inner(&admin_cap.id)
     }
 
     fun get_submarket_id<T>(sub_market: &SubMarket<T>) : ID {
