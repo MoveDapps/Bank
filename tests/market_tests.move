@@ -8,6 +8,8 @@ module mala::market_test {
     use mala::market::{Self, Market, SubMarket, AdminCap};
     use mala::market::{deposit_collateral};
 
+    struct USDC has drop {}
+
     #[test]
     public fun test_market_creation() {
         let sender = @0xBAAB;
@@ -95,6 +97,30 @@ module mala::market_test {
     public fun test_deposit() {
         let sender = @0xBAAB;
 
+        // Create Market.
+        let scenario = &mut test_scenario::begin(&sender);
+        {
+            market::create_market(test_scenario::ctx(scenario));
+        };
+
+        // Create SubMarket.
+        test_scenario::next_tx(scenario, &sender);
+        {
+            create_submarket<SUI>(scenario);
+        };
+
+        // Deposit to Submarket.
+        test_scenario::next_tx(scenario, &sender);
+        {
+            deposit_coin<SUI>(scenario, 100);
+        }
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 3)]
+    public fun test_deposit_fails_for_invalid_submarket() {
+        let sender = @0xBAAB;
+
         // Create Market 1.
         let scenario = &mut test_scenario::begin(&sender);
         {
@@ -104,28 +130,36 @@ module mala::market_test {
         // Create SubMarket.
         test_scenario::next_tx(scenario, &sender);
         {
-            let (market_wrapper, admin_cap) = get_market(scenario);
-            let market = test_scenario::borrow_mut(&mut market_wrapper);
-
-            market::create_sub_market<SUI>(market, &mut admin_cap, test_scenario::ctx(scenario));
-
-            return_market(scenario, market_wrapper, admin_cap);
+            create_submarket<SUI>(scenario);
         };
 
         // Deposit to Submarket.
         test_scenario::next_tx(scenario, &sender);
         {
-            let (market_wrapper, admin_cap, submarket) = get_market_submarket<SUI>(scenario);
-            let market = test_scenario::borrow_mut(&mut market_wrapper);
-
-            let coin = coin::mint_for_testing<SUI>(100, test_scenario::ctx(scenario));
-            deposit_collateral<SUI>(market, &mut submarket, coin, test_scenario::ctx(scenario));
-
-            return_market_submarket(scenario, market_wrapper, admin_cap, submarket);
+            deposit_coin<USDC>(scenario, 100);
         }
     }
 
     // *** Helper Methods *** 
+
+    fun deposit_coin<T>(scenario: &mut Scenario, amount: u64) {
+        let (market_wrapper, admin_cap, submarket) = get_market_submarket<T>(scenario);
+        let market = test_scenario::borrow_mut(&mut market_wrapper);
+
+        let coin = coin::mint_for_testing<T>(amount, test_scenario::ctx(scenario));
+        deposit_collateral<T>(market, &mut submarket, coin, test_scenario::ctx(scenario));
+
+        return_market_submarket(scenario, market_wrapper, admin_cap, submarket);
+    }
+
+    fun create_submarket<T>(scenario: &mut Scenario) {
+        let (market_wrapper, admin_cap) = get_market(scenario);
+        let market = test_scenario::borrow_mut(&mut market_wrapper);
+
+        market::create_sub_market<T>(market, &mut admin_cap, test_scenario::ctx(scenario));
+
+        return_market(scenario, market_wrapper, admin_cap);
+    }
 
     fun get_market(scenario: &mut Scenario) : (SharedWrapper<Market>, AdminCap) {
         let market_wrapper = test_scenario::take_shared<Market>(scenario);
