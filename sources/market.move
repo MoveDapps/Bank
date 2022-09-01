@@ -39,6 +39,7 @@ module mala::market {
     // Borrow records to run liquidation against.
     struct BorrowRecord<phantom B, phantom C> has key {
         id: UID,
+        borrower: address,
         col_amount: u64,
         bor_amount: u64
     }
@@ -78,9 +79,7 @@ module mala::market {
         check_admin(market, admin_cap);
         // SubMarket objects are owned by Market objects.
         vec_set::insert(&mut market.submarket_ids, get_submarket_id<T>(&sub_market));
-        
-        // keeping submarket global for now
-        //transfer::share_object(sub_market);
+        // Transfer the Submarket ownership to Market.
         transfer::transfer_to_object(sub_market, market);
     }
 
@@ -124,6 +123,7 @@ module mala::market {
         // Create borrow record for liquidation bot.
         let borrow_record = BorrowRecord<B, C> {
             id: object::new(ctx),
+            borrower: tx_context::sender(ctx),
             col_amount: col_amount,
             bor_amount: bor_amount
         };

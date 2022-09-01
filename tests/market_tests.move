@@ -2,9 +2,11 @@
 module mala::market_test {
     use sui::sui::SUI;
     use sui::object::ID;
+    use sui::coin;
     use sui::test_scenario::{Self, Scenario, SharedWrapper};
 
     use mala::market::{Self, Market, SubMarket, AdminCap};
+    use mala::market::{deposit_collateral};
 
     #[test]
     public fun test_market_creation() {
@@ -89,6 +91,42 @@ module mala::market_test {
         }
     }
 
+    #[test]
+    public fun test_deposit() {
+        let sender = @0xBAAB;
+
+        // Create Market 1.
+        let scenario = &mut test_scenario::begin(&sender);
+        {
+            market::create_market(test_scenario::ctx(scenario));
+        };
+
+        // Create SubMarket.
+        test_scenario::next_tx(scenario, &sender);
+        {
+            let (market_wrapper, admin_cap) = get_market(scenario);
+            let market = test_scenario::borrow_mut(&mut market_wrapper);
+
+            market::create_sub_market<SUI>(market, &mut admin_cap, test_scenario::ctx(scenario));
+
+            return_market(scenario, market_wrapper, admin_cap);
+        };
+
+        // Deposit to Submarket.
+        test_scenario::next_tx(scenario, &sender);
+        {
+            let (market_wrapper, admin_cap, submarket) = get_market_submarket<SUI>(scenario);
+            let market = test_scenario::borrow_mut(&mut market_wrapper);
+
+            let coin = coin::mint_for_testing<SUI>(100, test_scenario::ctx(scenario));
+            deposit_collateral<SUI>(market, &mut submarket, coin, test_scenario::ctx(scenario));
+
+            return_market_submarket(scenario, market_wrapper, admin_cap, submarket);
+        }
+    }
+
+    // *** Helper Methods *** 
+
     fun get_market(scenario: &mut Scenario) : (SharedWrapper<Market>, AdminCap) {
         let market_wrapper = test_scenario::take_shared<Market>(scenario);
         let admin_cap = test_scenario::take_owned<AdminCap>(scenario);
@@ -98,5 +136,28 @@ module mala::market_test {
     fun return_market(scenario: &mut Scenario, market_wrapper: SharedWrapper<Market>, admin_cap: AdminCap) {
         test_scenario::return_shared(scenario, market_wrapper);
         test_scenario::return_owned(scenario, admin_cap);
+    }
+
+    fun get_submarket<T>(scenario: &mut Scenario, market_wrapper: &mut SharedWrapper<Market>) : SubMarket<T> {
+        let market = test_scenario::borrow_mut(market_wrapper);
+        test_scenario::take_child_object<Market, SubMarket<T>>(scenario, market)
+    }
+
+    fun return_submarket<T>(scenario: &mut Scenario, submarket: SubMarket<T>) {
+        test_scenario::return_owned(scenario, submarket);
+    }
+
+    fun get_market_submarket<T>(scenario: &mut Scenario)
+    : (SharedWrapper<Market>, AdminCap, SubMarket<T>) {
+        let (market_wrapper, admin_cap) = get_market(scenario);
+        let submarket = get_submarket<T>(scenario, &mut market_wrapper);
+        (market_wrapper, admin_cap, submarket)
+    }
+
+    fun return_market_submarket<T>(
+        scenario: &mut Scenario, market_wrapper: SharedWrapper<Market>, admin_cap: AdminCap,
+        submarket: SubMarket<T>) {
+        return_market(scenario, market_wrapper, admin_cap);
+        return_submarket<T>(scenario, submarket);
     }
 }
