@@ -1,7 +1,6 @@
 module mala::market {
     use std::errors;
     use std::vector::{Self};
-    //use std::debug;
 
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
@@ -36,7 +35,7 @@ module mala::market {
         utilized: u64
     }
 
-    // Borrow records to run liquidation against.
+    // Borrow records to run liquidation against. To be stored in markets.
     struct BorrowRecord<phantom B, phantom C> has key {
         id: UID,
         borrower: address,
