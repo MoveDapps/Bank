@@ -13,11 +13,11 @@ Credit protocol for the future: non-custodial, transparent, algorithmic, and com
 The council comprises users with staked Mala tokens who participate in governance, earn protocol fees and backstop certain protocol risks.
 
 ### Mala KYC DAO
-Governed by the [Mala council](https://hackmd.io/@bidhan/H1cR7eFxi#Mala-Council). Mala KYC DAO incentivizes consumers to provide their real-world identity & credit info via secure & privacy-preserving entities trusted by the Mala council. This KYC information will enable Mala to work as a trusted KYC provider for the SUI ecosystem for both DeFi and non-DeFi use cases (e.g. social media). The DAO also unlocks real-life use cases like institutions accepting a user's on-chain Mala credit score to provide lines of credit.
+Governed by the [Mala council](https://hackmd.io/@bidhan/H1cR7eFxi#Mala-Council). Mala KYC DAO incentivizes consumers to provide their real-world identity & credit info via secure & privacy-preserving entities trusted by the Mala council. This KYC information enables Mala to work as a trusted KYC provider for the SUI ecosystem for both DeFi and non-DeFi use cases (e.g. social media). The DAO also unlocks real-life use cases like institutions accepting a user's on-chain Mala credit score to provide lines of credit.
 
 # The Vision
 ### Under Collateralized Loans
-Backed by the Mala KYC DAO and corresponding credit score from the [Mala Credit Bureau](https://hackmd.io/@bidhan/H1cR7eFxi#Mala-Credit-Bureau), Mala Bank will provide under or non-collateralized DeFi loans. Unlocking one of the biggest blockers of DeFi ecosystem becoming mainstream. Imagine credit cards backed by on-chain identity and credit providers!
+Backed by the Mala KYC DAO and corresponding credit score from the [Mala Credit Bureau](https://hackmd.io/@bidhan/H1cR7eFxi#Mala-Credit-Bureau), [Mala Bank](https://hackmd.io/@bidhan/H1cR7eFxi#Mala-Bank) will provide under or non-collateralized DeFi loans. Unlocking one of the biggest blockers of DeFi ecosystem becoming mainstream. Imagine credit cards backed by on-chain identity and credit providers!
 ### DeFi Protocol of Choice
 Mala aims to build the leading DeFi & Credit protocol for the SUI ecosystem and real-world consumers, becoming the lender, credit and identity provider of choice for both consumers and smart-contract dApps.
 
