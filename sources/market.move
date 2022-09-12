@@ -1,5 +1,4 @@
 module mala::market {
-    use std::errors;
     use std::vector::{Self};
 
     use sui::tx_context::{Self, TxContext};
@@ -91,7 +90,7 @@ module mala::market {
         let collateral_balance = coin::into_balance(collateral);
         let collateral_value = balance::value(&collateral_balance);
 
-        assert!(collateral_value > 0, errors::invalid_argument(EValidCollateralOnly));
+        assert!(collateral_value > 0, EValidCollateralOnly);
 
         balance::join(&mut sub_market.balance, collateral_balance);
         add_col_value(&mut sub_market.collaterals, tx_context::sender(ctx), collateral_value);
@@ -107,15 +106,15 @@ module mala::market {
         check_child(market, col_market);
 
         // Check if borrow market has enough funds.
-        assert!(balance::value(&bor_market.balance) >= bor_amount, errors::invalid_argument(EBorrowTooBig));
+        assert!(balance::value(&bor_market.balance) >= bor_amount, EBorrowTooBig);
 
         let unused_col = get_unused_col(&tx_context::sender(ctx), col_market);
         // Check if there's enough unused collateral.
-        assert!(unused_col >= col_amount, errors::invalid_argument(ECollateralTooBig));
+        assert!(unused_col >= col_amount, ECollateralTooBig);
         
         // Check that col_amount is greater or equal to minimum required collateral.
         let minimum_required_col = calculator::required_collateral_amount<B, C>(bor_amount);
-        assert!(col_amount >= minimum_required_col, errors::invalid_argument(ENotEnoughCollateral));
+        assert!(col_amount >= minimum_required_col, ENotEnoughCollateral);
 
         record_new_utilization(&mut col_market.collaterals, &tx_context::sender(ctx), col_amount);
  
@@ -143,7 +142,7 @@ module mala::market {
     public fun check_child<T>(market: &Market, sub_market: &SubMarket<T>) {
         assert!(
             vec_set::contains(&market.submarket_ids, &get_submarket_id(sub_market)) == true,
-            errors::invalid_argument(EChildObjectOnly)
+            EChildObjectOnly
         )
     }
 
@@ -159,10 +158,10 @@ module mala::market {
     }
 
     fun record_new_utilization(collaterals: &mut VecMap<address, ColData>, sender: &address, value: u64) {
-        assert!(vec_map::contains(collaterals, sender) == true, errors::invalid_argument(EInvalidSender));
+        assert!(vec_map::contains(collaterals, sender) == true, EInvalidSender);
         let col_data = vec_map::get_mut(collaterals, sender);
         
-        assert!(col_data.gross >= value + col_data.utilized, errors::invalid_argument(ECollateralTooBig));
+        assert!(col_data.gross >= value + col_data.utilized, ECollateralTooBig);
         col_data.utilized = col_data.utilized + value;
     }
 
@@ -192,9 +191,9 @@ module mala::market {
         } else {
             let col_data = vec_map::get(&sub_market.collaterals, sender);
         
-            assert!(col_data.gross >= col_data.utilized, errors::invalid_state(EInvalidColData));
-            assert!(col_data.gross > 0, errors::invalid_state(EInvalidColData));
-            assert!(col_data.utilized >= 0, errors::invalid_state(EInvalidColData));
+            assert!(col_data.gross >= col_data.utilized, EInvalidColData);
+            assert!(col_data.gross > 0, EInvalidColData);
+            assert!(col_data.utilized >= 0, EInvalidColData);
 
             col_data.gross - col_data.utilized
         }
