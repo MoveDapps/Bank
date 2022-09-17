@@ -184,7 +184,7 @@ module mala::market {
         object::uid_to_inner(&sub_market.id)
     }
 
-    fun get_unused_col<T>(sender: &address, sub_market: &SubMarket<T>) : u64 {
+    public fun get_unused_col<T>(sender: &address, sub_market: &SubMarket<T>) : u64 {
         // Return immediately if sender doesn't have a collateral is this sub market.
         if(!vec_map::contains(&sub_market.collaterals, sender)) {
             0u64
