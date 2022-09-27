@@ -76,7 +76,7 @@ module mala::market {
         // Only an admin can create a sub market recognized by this market.
         check_admin(market, admin_cap);
         // SubMarket objects are owned by Market objects.
-        vec_set::insert(&mut market.submarket_ids, get_submarket_id<T>(&sub_market));
+        vec_set::insert(&mut market.submarket_ids, object::id(&sub_market));
         // Transfer the Submarket ownership to Market.
         transfer::transfer_to_object(sub_market, market);
     }
@@ -108,7 +108,7 @@ module mala::market {
         // Check if borrow market has enough funds.
         assert!(balance::value(&bor_market.balance) >= bor_amount, EBorrowTooBig);
 
-        let unused_col = get_unused_col(&tx_context::sender(ctx), col_market);
+        let unused_col = get_unused_col<C>(tx_context::sender(ctx), col_market);
         // Check if there's enough unused collateral.
         assert!(unused_col >= col_amount, ECollateralTooBig);
         
@@ -141,7 +141,7 @@ module mala::market {
 
     public fun check_child<T>(market: &Market, sub_market: &SubMarket<T>) {
         assert!(
-            vec_set::contains(&market.submarket_ids, &get_submarket_id(sub_market)) == true,
+            vec_set::contains(&market.submarket_ids, &object::id(sub_market)) == true,
             EChildObjectOnly
         )
     }
@@ -180,16 +180,12 @@ module mala::market {
         object::uid_to_inner(&admin_cap.id)
     }
 
-    fun get_submarket_id<T>(sub_market: &SubMarket<T>) : ID {
-        object::uid_to_inner(&sub_market.id)
-    }
-
-    public fun get_unused_col<T>(sender: &address, sub_market: &SubMarket<T>) : u64 {
+    public fun get_unused_col<T>(sender: address, sub_market: &SubMarket<T>) : u64 {
         // Return immediately if sender doesn't have a collateral is this sub market.
-        if(!vec_map::contains(&sub_market.collaterals, sender)) {
+        if(!vec_map::contains(&sub_market.collaterals, &sender)) {
             0u64
         } else {
-            let col_data = vec_map::get(&sub_market.collaterals, sender);
+            let col_data = vec_map::get(&sub_market.collaterals, &sender);
         
             assert!(col_data.gross >= col_data.utilized, EInvalidColData);
             assert!(col_data.gross > 0, EInvalidColData);
