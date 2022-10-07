@@ -26,7 +26,8 @@ module mala::market {
 
     struct AdminCap has key {
         id: UID,
-        market_id: ID
+        market_id: ID,
+        owner_address: address
     }
 
     // Info on collateral usage info by address, to be stored in submarkets.
@@ -61,7 +62,7 @@ module mala::market {
             submarket_ids: vec_set::empty(),
             borrow_record_ids: vector::empty()
         };
-        let admin_cap = AdminCap{id: admincap_id, market_id: object::id(&market)};
+        let admin_cap = AdminCap{id: admincap_id, market_id: object::id(&market), owner_address: tx_context::sender(ctx)};
         
         // Share market globally, so that anyone can deposit or borrow.
         transfer::share_object(market);
@@ -70,14 +71,16 @@ module mala::market {
     }
 
     public entry fun create_sub_market<T>(market: &mut Market, admin_cap: &mut AdminCap, ctx: &mut TxContext) {
+        // Only an admin can create a sub market recognized by this market.
+        check_admin(market, admin_cap);
+        assert!(admin_cap.owner_address == tx_context::sender(ctx), 1);
+
         let sub_market = SubMarket<T>{
             id: object::new(ctx),
             balance: balance::zero(),
             collaterals: vec_map::empty()
         };
-        
-        // Only an admin can create a sub market recognized by this market.
-        check_admin(market, admin_cap);
+
         // SubMarket objects are owned by Market objects.
         vec_set::insert(&mut market.submarket_ids, object::id(&sub_market));
         // Transfer the Submarket ownership to Market.
