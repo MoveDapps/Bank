@@ -2,6 +2,7 @@
 module mala::market_test {
     use sui::sui::SUI;
     use sui::object::ID;
+    use sui::object;
     use sui::coin;
     use sui::test_scenario::{Self, Scenario, SharedWrapper};
 
@@ -27,7 +28,7 @@ module mala::market_test {
             let market = test_scenario::borrow_mut(&mut market_wrapper);
 
             // Check that admin cap owned by sender has the correct market id.
-            assert!(market::get_market_id(market)
+            assert!(object::id(market)
                 == market::get_admincap_marketid(&admin_cap), 1);
 
             // Create a SUI SubMarket.
@@ -68,7 +69,7 @@ module mala::market_test {
         test_scenario::next_tx(scenario, &sender);
         {
             let admin_cap = test_scenario::take_owned<AdminCap>(scenario);
-            admin_cap_1_id = market::get_admincap_id(&admin_cap);
+            admin_cap_1_id = object::id(&admin_cap);
             test_scenario::return_owned(scenario, admin_cap);
         };
 

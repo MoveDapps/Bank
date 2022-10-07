@@ -13,6 +13,7 @@ module mala::market {
 
     struct Market has key {
         id: UID,
+        admincap_id: ID,
         submarket_ids: VecSet<ID>,
         borrow_record_ids: vector<ID>
     }
@@ -53,12 +54,14 @@ module mala::market {
     const EInvalidSender: u64 = 8;
 
     public entry fun create_market(ctx: &mut TxContext) {
+        let admincap_id = object::new(ctx);
         let market = Market{
             id: object::new(ctx),
+            admincap_id: object::uid_to_inner(&admincap_id),
             submarket_ids: vec_set::empty(),
             borrow_record_ids: vector::empty()
         };
-        let admin_cap = AdminCap{id: object::new(ctx), market_id: get_market_id(&market)};
+        let admin_cap = AdminCap{id: admincap_id, market_id: object::id(&market)};
         
         // Share market globally, so that anyone can deposit or borrow.
         transfer::share_object(market);
@@ -166,18 +169,9 @@ module mala::market {
     }
 
     /* === Reads === */
-    public fun get_market_id(market: &Market) : ID {
-        object::uid_to_inner(&market.id)
-    }
-
     #[test_only]
     public fun get_admincap_marketid(admin_cap: &AdminCap) : ID {
         admin_cap.market_id
-    }
-
-    #[test_only]
-    public fun get_admincap_id(admin_cap: &AdminCap) : ID {
-        object::uid_to_inner(&admin_cap.id)
     }
 
     public fun get_unused_col<T>(sender: address, sub_market: &SubMarket<T>) : u64 {
