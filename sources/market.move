@@ -11,9 +11,9 @@ module mala::market {
 
     use mala::calculator::{Self};
 
-    struct Market has key {
+    struct Pool has key {
         id: UID,
-        admincap_id: ID,
+        admin_address: address,
         submarket_ids: VecSet<ID>,
         borrow_record_ids: vector<ID>
     }
@@ -22,12 +22,6 @@ module mala::market {
         id: UID,
         balance: Balance<T>,
         collaterals: VecMap<address, ColData>
-    }
-
-    struct AdminCap has key {
-        id: UID,
-        market_id: ID,
-        owner_address: address
     }
 
     // Info on collateral usage info by address, to be stored in submarkets.
@@ -55,25 +49,20 @@ module mala::market {
     const EInvalidSender: u64 = 8;
 
     public entry fun create_market(ctx: &mut TxContext) {
-        let admincap_id = object::new(ctx);
-        let market = Market{
+        let market = Pool{
             id: object::new(ctx),
-            admincap_id: object::uid_to_inner(&admincap_id),
+            admin_address: tx_context::sender(ctx),
             submarket_ids: vec_set::empty(),
             borrow_record_ids: vector::empty()
         };
-        let admin_cap = AdminCap{id: admincap_id, market_id: object::id(&market), owner_address: tx_context::sender(ctx)};
         
         // Share market globally, so that anyone can deposit or borrow.
         transfer::share_object(market);
-        // Transfer admin capability to the tx sender.
-        transfer::transfer(admin_cap, tx_context::sender(ctx));
     }
 
-    public entry fun create_sub_market<T>(market: &mut Market, admin_cap: &mut AdminCap, ctx: &mut TxContext) {
+    public entry fun create_sub_market<T>(market: &mut Pool, ctx: &mut TxContext) {
         // Only an admin can create a sub market recognized by this market.
-        check_admin(market, admin_cap);
-        assert!(admin_cap.owner_address == tx_context::sender(ctx), 1);
+        check_admin(market, tx_context::sender(ctx));
 
         let sub_market = SubMarket<T>{
             id: object::new(ctx),
@@ -88,7 +77,7 @@ module mala::market {
     }
 
     public entry fun deposit_collateral<T>(
-        market: &mut Market, sub_market: &mut SubMarket<T>, collateral: Coin<T>, ctx: &mut TxContext
+        market: &mut Pool, sub_market: &mut SubMarket<T>, collateral: Coin<T>, ctx: &mut TxContext
     ) {
         // Check if SubMarket is owned by Market.
         check_child(market, sub_market);
@@ -105,7 +94,7 @@ module mala::market {
     // B type coin will be borrowed against C collateral.
     public fun borrow<B, C>(
         bor_amount: u64, col_amount: u64,
-        bor_market: &mut SubMarket<B>, col_market: &mut SubMarket<C>, market: &mut Market, ctx: &mut TxContext
+        bor_market: &mut SubMarket<B>, col_market: &mut SubMarket<C>, market: &mut Pool, ctx: &mut TxContext
     ) : Coin<B> {
         // Check if submarkets are owned by market.
         check_child(market, bor_market);
@@ -140,12 +129,11 @@ module mala::market {
     }
 
     /* === Utils === */
-    fun check_admin(market: &Market, admin_cap: &AdminCap) {
-        //assert!(object::borrow_id(market) == &admin_cap.market_id, errors::invalid_argument(EAdminOnly));
-        assert!(object::borrow_id(market) == &admin_cap.market_id, EAdminOnly);
+    fun check_admin(market: &Pool, sender_address: address) {
+        assert!(market.admin_address == sender_address, EAdminOnly);
     }
 
-    public fun check_child<T>(market: &Market, sub_market: &SubMarket<T>) {
+    public fun check_child<T>(market: &Pool, sub_market: &SubMarket<T>) {
         assert!(
             vec_set::contains(&market.submarket_ids, &object::id(sub_market)) == true,
             EChildObjectOnly
@@ -172,11 +160,6 @@ module mala::market {
     }
 
     /* === Reads === */
-    #[test_only]
-    public fun get_admincap_marketid(admin_cap: &AdminCap) : ID {
-        admin_cap.market_id
-    }
-
     public fun get_unused_col<T>(sender: address, sub_market: &SubMarket<T>) : u64 {
         // Return immediately if sender doesn't have a collateral is this sub market.
         if(!vec_map::contains(&sub_market.collaterals, &sender)) {
