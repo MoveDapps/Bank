@@ -50,9 +50,28 @@ module mala::market_test {
     }
 
     #[test]
-    //#[expected_failure]
-    public fun market_creation_by_non_admin() {
+    #[expected_failure]
+    public fun fail_submarket_creation_by_non_admin() {
+        let admin = @0xBAAB;
+        let non_admin = @0xABBA;
 
+        // Create Market.
+        let scenario = &mut test_scenario::begin(&admin);
+        {
+            market::create_market(test_scenario::ctx(scenario));
+        };
+
+        // Test admin cap and create SubMarket.
+        test_scenario::next_tx(scenario, &non_admin);
+        {
+            let market_wrapper = test_scenario::take_shared<Pool>(scenario);
+            let market = test_scenario::borrow_mut(&mut market_wrapper);
+
+            // Create a SUI SubMarket.
+            market::create_sub_market<SUI>(market, test_scenario::ctx(scenario));
+        
+            test_scenario::return_shared(scenario, market_wrapper);
+        };
     }
 
     #[test]
