@@ -18,7 +18,7 @@ module mala::market_test {
         // Create Market.
         let scenario = &mut test_scenario::begin(&sender);
         {
-            market::create_market(test_scenario::ctx(scenario));
+            market::create_pool(test_scenario::ctx(scenario));
         };
 
         // Test admin cap and create SubMarket.
@@ -58,7 +58,7 @@ module mala::market_test {
         // Create Market.
         let scenario = &mut test_scenario::begin(&admin);
         {
-            market::create_market(test_scenario::ctx(scenario));
+            market::create_pool(test_scenario::ctx(scenario));
         };
 
         // Test admin cap and create SubMarket.
@@ -81,7 +81,7 @@ module mala::market_test {
         // Create Market.
         let scenario = &mut test_scenario::begin(&sender);
         {
-            market::create_market(test_scenario::ctx(scenario));
+            market::create_pool(test_scenario::ctx(scenario));
         };
 
         // Create SubMarket.
@@ -105,7 +105,7 @@ module mala::market_test {
         // Create Market 1.
         let scenario = &mut test_scenario::begin(&sender);
         {
-            market::create_market(test_scenario::ctx(scenario));
+            market::create_pool(test_scenario::ctx(scenario));
         };
 
         // Create SubMarket.

@@ -48,7 +48,7 @@ module mala::market {
     const ENotEnoughCollateral: u64 = 7;
     const EInvalidSender: u64 = 8;
 
-    public entry fun create_market(ctx: &mut TxContext) {
+    public entry fun create_pool(ctx: &mut TxContext) {
         let market = Pool{
             id: object::new(ctx),
             admin_address: tx_context::sender(ctx),
