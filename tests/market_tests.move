@@ -1,15 +1,15 @@
 #[test_only]
 module mala::market_test {
     use sui::sui::SUI;
-    //use sui::object::ID;
-    //use sui::object;
     use sui::coin;
     use sui::test_scenario::{Self, Scenario, SharedWrapper};
 
     use mala::market::{Self, Pool, SubMarket};
     use mala::market::{deposit_collateral};
+    use mala::fake_usdc::{USDC};
 
-    struct USDC has drop {}
+    use sui::object::{Self};
+    use std::debug;
 
     #[test]
     public fun market_creation() {
@@ -88,13 +88,52 @@ module mala::market_test {
         test_scenario::next_tx(scenario, &sender);
         {
             create_submarket<SUI>(scenario);
+            create_submarket<USDC>(scenario);
         };
 
         // Deposit to Submarket.
         test_scenario::next_tx(scenario, &sender);
         {
-            deposit_coin<SUI>(scenario, 100);
+            deposit_coin_into_latest_market<SUI>(scenario, 100);
+        };
+
+        // Test that the deposit settled in the previous transaction.
+        test_scenario::next_tx(scenario, &sender);
+        {
+            let (market_wrapper, submarket) = get_latest_market_submarket<SUI>(scenario);
+            let unused_col = market::get_unused_col(sender, &submarket);
+            assert!(unused_col == 100, 1);
+            return_market_submarket(scenario, market_wrapper, submarket);
         }
+    }
+
+    #[test]
+    public fun test_borrow() {
+        let sender = @0xBAAB;
+
+        // Create Market.
+        let scenario = &mut test_scenario::begin(&sender);
+        {
+            market::create_pool(test_scenario::ctx(scenario));
+        };
+
+        // Create SubMarket.
+        test_scenario::next_tx(scenario, &sender);
+        {
+            create_submarket<SUI>(scenario);
+        };
+
+        // Create SubMarket.
+        test_scenario::next_tx(scenario, &sender);
+        {
+            create_submarket<USDC>(scenario);
+        };
+
+        // Deposit to Submarket.
+        test_scenario::next_tx(scenario, &sender);
+        {
+            deposit_coin_into_latest_market<SUI>(scenario, 100);
+        };
     }
 
     #[test]
@@ -117,14 +156,14 @@ module mala::market_test {
         // Deposit to Submarket.
         test_scenario::next_tx(scenario, &sender);
         {
-            deposit_coin<USDC>(scenario, 100);
+            deposit_coin_into_latest_market<USDC>(scenario, 100);
         }
     }
 
     // *** Helper Methods *** 
 
-    fun deposit_coin<T>(scenario: &mut Scenario, amount: u64) {
-        let (market_wrapper, submarket) = get_market_submarket<T>(scenario);
+    fun deposit_coin_into_latest_market<T>(scenario: &mut Scenario, amount: u64) {
+        let (market_wrapper, submarket) = get_latest_market_submarket<T>(scenario);
         let market = test_scenario::borrow_mut(&mut market_wrapper);
 
         let coin = coin::mint_for_testing<T>(amount, test_scenario::ctx(scenario));
@@ -138,6 +177,8 @@ module mala::market_test {
         let market = test_scenario::borrow_mut(&mut market_wrapper);
 
         market::create_sub_market<T>(market, test_scenario::ctx(scenario));
+        //debug::print(&object::id(market));
+        //debug::print(market::get_submarket_list(market));
 
         test_scenario::return_shared(scenario, market_wrapper);
     }
@@ -147,7 +188,7 @@ module mala::market_test {
         test_scenario::take_child_object<Pool, SubMarket<T>>(scenario, market)
     }
 
-    fun get_market_submarket<T>(scenario: &mut Scenario)
+    fun get_latest_market_submarket<T>(scenario: &mut Scenario)
     : (SharedWrapper<Pool>, SubMarket<T>) {
         let market_wrapper = test_scenario::take_shared<Pool>(scenario);
         let submarket = get_submarket<T>(scenario, &mut market_wrapper);

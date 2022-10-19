@@ -174,4 +174,9 @@ module mala::market {
             col_data.gross - col_data.utilized
         }
     }
+
+    #[test_only]
+    public fun get_submarket_list(market : &Pool) : &VecSet<ID> {
+        &market.submarket_ids
+    }
 }
