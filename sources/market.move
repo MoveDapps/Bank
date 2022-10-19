@@ -11,6 +11,8 @@ module mala::market {
 
     use mala::calculator::{Self};
 
+    //use std::debug;
+
     struct Pool has key {
         id: UID,
         admin_address: address,
@@ -125,7 +127,7 @@ module mala::market {
         vector::push_back(&mut market.borrow_record_ids, object::uid_to_inner(&borrow_record.id));
         transfer::transfer_to_object(borrow_record, market);
 
-        coin::take(&mut bor_market.balance, col_amount, ctx)
+        coin::take(&mut bor_market.balance, bor_amount, ctx)
     }
 
     /* === Utils === */

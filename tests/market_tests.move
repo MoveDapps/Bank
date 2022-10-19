@@ -2,14 +2,15 @@
 module mala::market_test {
     use sui::sui::SUI;
     use sui::coin;
+    use sui::transfer;
     use sui::test_scenario::{Self, Scenario, SharedWrapper};
 
     use mala::market::{Self, Pool, SubMarket};
     use mala::market::{deposit_collateral};
     use mala::fake_usdc::{USDC};
 
-    use sui::object::{Self};
-    use std::debug;
+    //use sui::object::{Self};
+    //use std::debug;
 
     #[test]
     public fun market_creation() {
@@ -88,7 +89,6 @@ module mala::market_test {
         test_scenario::next_tx(scenario, &sender);
         {
             create_submarket<SUI>(scenario);
-            create_submarket<USDC>(scenario);
         };
 
         // Deposit to Submarket.
@@ -117,22 +117,48 @@ module mala::market_test {
             market::create_pool(test_scenario::ctx(scenario));
         };
 
-        // Create SubMarket.
+        // Create SUI Submarket.
         test_scenario::next_tx(scenario, &sender);
         {
             create_submarket<SUI>(scenario);
         };
 
-        // Create SubMarket.
+        // Create USDC Submarket.
         test_scenario::next_tx(scenario, &sender);
         {
             create_submarket<USDC>(scenario);
         };
 
-        // Deposit to Submarket.
+        // Deposit to SUI Submarket.
         test_scenario::next_tx(scenario, &sender);
         {
             deposit_coin_into_latest_market<SUI>(scenario, 100);
+        };
+
+        // Deposit to USDC Submarket.
+        test_scenario::next_tx(scenario, &sender);
+        {
+            deposit_coin_into_latest_market<USDC>(scenario, 100);
+        };
+
+        test_scenario::next_tx(scenario, &sender);
+        {
+            let market_wrapper = test_scenario::take_shared<Pool>(scenario);
+            let market = test_scenario::borrow_mut(&mut market_wrapper);
+            let sui_submarket = test_scenario::take_child_object<Pool, SubMarket<SUI>>(scenario, market);
+            let usdc_submarket = test_scenario::take_child_object<Pool, SubMarket<USDC>>(scenario, market);
+            let borrowed_coin = market::borrow<SUI, USDC>(50, 100, &mut sui_submarket, &mut usdc_submarket, market, test_scenario::ctx(scenario));
+
+            let borrowed_value = coin::value<SUI>(&borrowed_coin);
+            
+            //debug::print(&borrowed_value);
+            
+            assert!(borrowed_value == 50, 1);
+
+            transfer::transfer(borrowed_coin, sender);
+            test_scenario::return_shared(scenario, market_wrapper);
+            test_scenario::return_owned(scenario, sui_submarket);
+            test_scenario::return_owned(scenario, usdc_submarket);
         };
     }
 
