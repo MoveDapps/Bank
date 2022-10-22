@@ -75,7 +75,10 @@ module mala::market {
         // SubMarket objects are owned by Market objects.
         vec_set::insert(&mut market.submarket_ids, object::id(&sub_market));
         // Transfer the Submarket ownership to Market.
-        transfer::transfer_to_object(sub_market, market);
+        transfer::share_object(sub_market);
+        
+        // TODO - change it to transfer to object
+        // transfer::transfer_to_object(sub_market, market);
     }
 
     public entry fun deposit_collateral<T>(
@@ -125,7 +128,10 @@ module mala::market {
 
         // The borrow record should be owned by and recorded inside the market.
         vector::push_back(&mut market.borrow_record_ids, object::uid_to_inner(&borrow_record.id));
-        transfer::transfer_to_object(borrow_record, market);
+        
+        // TODO - convert it to transfer_to_object
+        transfer::share_object(borrow_record);
+        //transfer::transfer_to_object(borrow_record, market);
 
         coin::take(&mut bor_market.balance, bor_amount, ctx)
     }
