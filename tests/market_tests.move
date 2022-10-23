@@ -196,7 +196,7 @@ module mala::market_test {
     }
     
     #[test]
-   // #[expected_failure(abort_code = 2)]
+   #[expected_failure(abort_code = 2)]
     public fun test_deposit_fails_for_nonchild_submarket() {
         let sender = @0xBAAB;
 
@@ -213,9 +213,13 @@ module mala::market_test {
             create_submarket<SUI>(scenario);
         };
 
-        //test_scenario::next_tx(scenario1, sender1);
-        let (old_market, old_submarket) = get_latest_market_submarket<SUI>(scenario);            
-        debug::print(&object::id(&mut old_market));
+        let old_market;
+        let old_submarket;
+        test_scenario::next_tx(scenario, sender);
+        {
+            (old_market, old_submarket) = get_latest_market_submarket<SUI>(scenario);            
+            debug::print(&object::id(&mut old_market));
+        };
 
 
         // Create Martket 2.
