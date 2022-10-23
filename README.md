@@ -24,6 +24,8 @@ Mala aims to build the leading DeFi & Credit protocol for the SUI ecosystem and 
 # Why SUI
 The vision of SUI ecosystem of not just providing on-chain use cases but real-world utility for the next billion users is in-line with the vision for Mala Protocol. The object-pool-centric design of SUI enables complex DeFi use cases never implemented before. The extra secure design of the Move Language will make the Mala Protocol ecosystem more resilient to potential vulnerabilities.
 
+# Class Diagram
+![class diagram](./assets/class_diagram.png "Class Diagram")
 
 ---
 
