@@ -9,8 +9,8 @@ module mala::market_test {
     use mala::market::{deposit_collateral};
     use mala::fake_usdc::{USDC};
 
-    use sui::object::{Self};
-    use std::debug;
+    //use sui::object::{Self};
+    //use std::debug;
 
     #[test]
     public fun market_creation() {
@@ -196,7 +196,7 @@ module mala::market_test {
     }
     
     #[test]
-   #[expected_failure(abort_code = 2)]
+    #[expected_failure(abort_code = 2)]
     public fun test_deposit_fails_for_nonchild_submarket() {
         let sender = @0xBAAB;
 
@@ -218,9 +218,7 @@ module mala::market_test {
         test_scenario::next_tx(scenario, sender);
         {
             (old_market, old_submarket) = get_latest_market_submarket<SUI>(scenario);            
-            debug::print(&object::id(&mut old_market));
         };
-
 
         // Create Martket 2.
         test_scenario::next_tx(scenario, sender);
@@ -234,14 +232,10 @@ module mala::market_test {
             create_submarket<SUI>(scenario);
         };
 
-
-        test_scenario::next_tx(scenario, sender);
-        //test_scenario::next_tx(scenario2, sender2);
-
         // Deposit to wrong Submarket.
+        test_scenario::next_tx(scenario, sender);
         {
             let (new_market, new_submarket) = get_latest_market_submarket<SUI>(scenario);
-            debug::print(&object::id(&mut new_market));
 
             let coin = coin::mint_for_testing<SUI>(100, test_scenario::ctx(scenario));
             deposit_collateral<SUI>(&mut old_market,&mut new_submarket, coin, test_scenario::ctx(scenario));
@@ -253,8 +247,6 @@ module mala::market_test {
         test_scenario::return_shared(old_market);
         test_scenario::return_shared(old_submarket);
         test_scenario::end(scenario_val);
-        //test_scenario::end(scenario_2);
-
     }
 
     // *** Helper Methods *** 
@@ -273,8 +265,8 @@ module mala::market_test {
         let market = test_scenario::take_shared<Pool>(scenario);
 
         market::create_sub_market<T>(&mut market, test_scenario::ctx(scenario));
-        //debug::print(&object::id(&mut market));
-        //debug::print(market::get_submarket_list(&mut market));
+        //debug::print(&object::id(market));
+        //debug::print(market::get_submarket_list(market));
 
         test_scenario::return_shared(market);
     }
