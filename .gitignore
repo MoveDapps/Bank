@@ -26,6 +26,9 @@ storage/
 # Node.js
 node_modules
 
+#sui
+*.bpl
+
 # logs
 wallet.log.*
 sui.log.*
