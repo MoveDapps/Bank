@@ -194,6 +194,60 @@ module mala::market_test {
         };
         test_scenario::end(scenario_val);
     }
+    
+    #[test]
+    #[expected_failure(abort_code = 2)]
+    public fun test_deposit_fails_for_nonchild_submarket() {
+        let sender = @0xBAAB;
+
+        // Create Market 1.
+        let scenario_val = test_scenario::begin(sender);
+        let scenario = &mut scenario_val;
+        {
+            market::create_pool(test_scenario::ctx(scenario));
+        };
+
+        // Create SubMarket 1.
+        test_scenario::next_tx(scenario, sender);
+        {
+            create_submarket<SUI>(scenario);
+        };
+
+        let old_market;
+        let old_submarket;
+        test_scenario::next_tx(scenario, sender);
+        {
+            (old_market, old_submarket) = get_latest_market_submarket<SUI>(scenario);            
+        };
+
+        // Create Martket 2.
+        test_scenario::next_tx(scenario, sender);
+        {
+            market::create_pool(test_scenario::ctx(scenario));
+        };
+
+        // Create SubMarket 2.
+        test_scenario::next_tx(scenario, sender);
+        {
+            create_submarket<SUI>(scenario);
+        };
+
+        // Deposit to wrong Submarket.
+        test_scenario::next_tx(scenario, sender);
+        {
+            let (new_market, new_submarket) = get_latest_market_submarket<SUI>(scenario);
+
+            let coin = coin::mint_for_testing<SUI>(100, test_scenario::ctx(scenario));
+            deposit_collateral<SUI>(&mut old_market,&mut new_submarket, coin, test_scenario::ctx(scenario));
+            
+            test_scenario::return_shared(new_market);
+            test_scenario::return_shared(new_submarket);
+
+        };
+        test_scenario::return_shared(old_market);
+        test_scenario::return_shared(old_submarket);
+        test_scenario::end(scenario_val);
+    }
 
     // *** Helper Methods *** 
 
