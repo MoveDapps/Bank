@@ -1,0 +1,18 @@
+name: Run Unit Test
+on: [push,pull_request]
+jobs:
+  unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: cat install sui bash file
+        run: cat ./.github/workflows/install-sui-linux.sh
+        shell: bash
+      - name: Install SUI
+        run: ./.github/workflows/install-sui-linux.sh
+        shell: bash
+      - name: Run Unit Test
+        run: sui move test
+        shell: bash
+     
