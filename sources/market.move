@@ -1,5 +1,9 @@
 module mala::market {
     use std::vector::{Self};
+    use std::bcs::{Self};
+    use std::ascii::{Self, String};
+    use std::type_name::{Self};
+    //use std::string::{Self, String};
 
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
@@ -11,13 +15,13 @@ module mala::market {
 
     use mala::calculator::{Self};
 
-    //use std::debug;
+    use std::debug;
 
     struct Pool has key {
         id: UID,
         admin_address: address,
         submarket_ids: VecSet<ID>,
-        borrow_record_ids: vector<ID>
+        borrow_record_ids: VecMap<vector<u8>, ID>
     }
 
     struct SubMarket<phantom T> has key {
@@ -32,8 +36,9 @@ module mala::market {
         utilized: u64
     }
 
+    // TODO: convert borrow record to top level object after dynamic loading support. (e.g. no store cap, only key)
     // Borrow records to run liquidation against. To be stored in markets.
-    struct BorrowRecord<phantom B, phantom C> has key {
+    struct BorrowRecord<phantom B, phantom C> has store {
         id: UID,
         borrower: address,
         col_amount: u64,
@@ -55,7 +60,7 @@ module mala::market {
             id: object::new(ctx),
             admin_address: tx_context::sender(ctx),
             submarket_ids: vec_set::empty(),
-            borrow_record_ids: vector::empty()
+            borrow_record_ids: vec_map::empty()
         };
         
         // Share market globally, so that anyone can deposit or borrow.
@@ -126,12 +131,21 @@ module mala::market {
             bor_amount: bor_amount
         };
 
+        // Build key with address + type of B + type of C
+        let address_bytes = bcs::to_bytes<address>(&tx_context::sender(ctx));
+        let borrow_record_type_string = type_name::into_string(type_name::get<BorrowRecord<B, C>>());
+
+        //debug::print(&ascii::all_characters_printable(&borrow_record_type_string));
+        //debug::print(&borrow_record_type_string);
+
+        let borrow_record_type = ascii::into_bytes(borrow_record_type_string);
+
+        vector::append<u8>(&mut address_bytes, borrow_record_type);
+
         // The borrow record should be owned by and recorded inside the market.
-        vector::push_back(&mut market.borrow_record_ids, object::uid_to_inner(&borrow_record.id));
-        
-        // TODO - convert it to transfer_to_object
-        transfer::share_object(borrow_record);
-        //transfer::transfer_to_object(borrow_record, market);
+        if(!vec_map::contains(&market.borrow_record_ids, &address_bytes)) {
+            vec_map::insert(&mut market.borrow_record_ids, address_bytes, object::uid_to_inner(&borrow_record.id));
+        };
 
         coin::take(&mut bor_market.balance, bor_amount, ctx)
     }
