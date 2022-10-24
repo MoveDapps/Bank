@@ -10,9 +10,8 @@ struct Pool {
     +<b>id:</b> UID (Unique id of the Pool),
     +<b>admin_address:</b> address (Public address of the admin wallet),
     +<b>submarket_ids:</b> VecSet<ID> (Set of Submarket IDs owned by this Pool),
-    +<b>borrow_record_ids:</b> vector<ID> (IDs of BorrowRecords under this market)
+    +<b>borrower_detail_ids:</b> VecMap<address, ID> (ID of a borrower's details)
 }
-
 
 struct SubMarket <<T>> {
     Currency Specific Pool
@@ -33,18 +32,29 @@ struct ColData {
     +<b>utilized:</b> u64 (utilized collateral amount)
 }
 
+struct BorrowerDetail {
+    A specific borrower's details
+    ==abilities==
+    Key
+    ==
+    +<b>id</b>: UID,
+    +<b>address</b>: address, (address of borrower)
+    +<b>borrow_record_ids</b>:  vector<ID> (borrow records of this borrower)
+}
+
 struct BorrowRecord <<B>> <<C>> {
-    Record of a borrow of B against collateral C
+    Record of a borrow of B against collateral C.
+    For each (B,C) pair, there's only one BorrowRecord.
     ==abilities==
     Key
     ==members==
     +<b>id:</b> UID, (Unique BorrowRecord ID)
-    +<b>borrower:</b> address, (Public address of borrower)
     +<b>col_amount:</b> u64, (collateral amount)
     +<b>bor_amount:</b> u64 (borrowed amount)
 }
 
-Pool --|> BorrowRecord : owns
+Pool --|> BorrowerDetail : owns
+BorrowerDetail --|> BorrowRecord : owns
 Pool --|> SubMarket : owns
 SubMarket --|> ColData : stores
 @enduml
