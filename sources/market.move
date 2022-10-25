@@ -38,7 +38,7 @@ module mala::market {
 
     // TODO: convert borrow record to top level object after dynamic loading support. (e.g. no store cap, only key)
     // Borrow records to run liquidation against. To be stored in markets.
-    struct BorrowRecord<phantom B, phantom C> has store {
+    struct BorrowRecord<phantom B, phantom C> has key {
         id: UID,
         borrower: address,
         col_amount: u64,
@@ -122,14 +122,6 @@ module mala::market {
         assert!(col_amount >= minimum_required_col, ENotEnoughCollateral);
 
         record_new_utilization(&mut col_market.collaterals, &tx_context::sender(ctx), col_amount);
- 
-        // Create borrow record for liquidation bot.
-        let borrow_record = BorrowRecord<B, C> {
-            id: object::new(ctx),
-            borrower: tx_context::sender(ctx),
-            col_amount: col_amount,
-            bor_amount: bor_amount
-        };
 
         // Build key with address + type of B + type of C
         let address_bytes = bcs::to_bytes<address>(&tx_context::sender(ctx));
@@ -144,7 +136,23 @@ module mala::market {
 
         // The borrow record should be owned by and recorded inside the market.
         if(!vec_map::contains(&market.borrow_record_ids, &address_bytes)) {
-            vec_map::insert(&mut market.borrow_record_ids, address_bytes, object::uid_to_inner(&borrow_record.id));
+            // Create borrow record for liquidation bot.
+            let borrow_record = BorrowRecord<B, C> {
+                id: object::new(ctx),
+                borrower: tx_context::sender(ctx),
+                col_amount: col_amount,
+                bor_amount: bor_amount
+            };
+
+            vec_map::insert(
+                &mut market.borrow_record_ids,
+                address_bytes,
+                object::uid_to_inner(&borrow_record.id)
+            );
+
+            transfer::share_object(borrow_record);
+        } else {
+            // Need to dynamically load the borrow record which doesn't exist yet.
         };
 
         coin::take(&mut bor_market.balance, bor_amount, ctx)
