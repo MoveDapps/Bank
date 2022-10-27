@@ -50,7 +50,6 @@ module mala::market_test {
             market::create_pool(test_scenario::ctx(scenario));
         };
 
-        // Test admin cap and create SubMarket.
         test_scenario::next_tx(scenario, non_admin);
         {
             let market = test_scenario::take_shared<Pool>(scenario);
@@ -60,6 +59,83 @@ module mala::market_test {
         
             test_scenario::return_shared(market);
         };
+        test_scenario::end(scenario_val);
+    }
+
+    #[test]
+    public fun multiple_submarket_different_coin() {
+        let admin = @0xBAAB;
+
+        let scenario_val = test_scenario::begin(admin);
+
+        // Create pool.
+        let scenario = &mut scenario_val;
+        {
+            market::create_pool(test_scenario::ctx(scenario));
+        };
+
+        // Create SUI submarket.
+        test_scenario::next_tx(scenario, admin);
+        {
+            let market = test_scenario::take_shared<Pool>(scenario);
+            // Create a SUI SubMarket.
+            market::create_sub_market<SUI>(&mut market, test_scenario::ctx(scenario));
+        
+            test_scenario::return_shared(market);
+        };
+
+        // Create USDC submarket.
+        test_scenario::next_tx(scenario, admin);
+        {
+            let market = test_scenario::take_shared<Pool>(scenario);
+            // Create a SUI SubMarket.
+            market::create_sub_market<USDC>(&mut market, test_scenario::ctx(scenario));
+        
+            test_scenario::return_shared(market);
+        };
+
+        test_scenario::end(scenario_val);
+    }
+
+    #[test]
+    #[expected_failure]
+    public fun multiple_submarket_same_coin() {
+        let admin = @0xBAAB;
+
+        let scenario_val = test_scenario::begin(admin);
+
+        // Create pool.
+        let scenario = &mut scenario_val;
+        {
+            market::create_pool(test_scenario::ctx(scenario));
+        };
+
+        // Create SUI submarket.
+        test_scenario::next_tx(scenario, admin);
+        {
+            let market = test_scenario::take_shared<Pool>(scenario);
+            // Create a SUI SubMarket.
+            market::create_sub_market<SUI>(&mut market, test_scenario::ctx(scenario));
+            test_scenario::return_shared(market);
+        };
+
+        // Create SUI submarket.
+        test_scenario::next_tx(scenario, admin);
+        {
+            let market = test_scenario::take_shared<Pool>(scenario);
+            // Create a SUI SubMarket.
+            market::create_sub_market<USDC>(&mut market, test_scenario::ctx(scenario));
+            test_scenario::return_shared(market);
+        };
+
+        // Try and fail creating SUI submarket again.
+        test_scenario::next_tx(scenario, admin);
+        {
+            let market = test_scenario::take_shared<Pool>(scenario);
+            market::create_sub_market<SUI>(&mut market, test_scenario::ctx(scenario));
+            test_scenario::return_shared(market);
+        };
+
         test_scenario::end(scenario_val);
     }
 
@@ -92,7 +168,6 @@ module mala::market_test {
             let market = test_scenario::take_shared<Pool>(scenario);
             let unused_col = market::get_unused_col_from_market<SUI>(sender, &market);
             assert!(unused_col == 100, 1);
-
             test_scenario::return_shared(market);
         };
         test_scenario::end(scenario_val);
@@ -112,13 +187,7 @@ module mala::market_test {
         // Create SUI Submarket.
         test_scenario::next_tx(scenario, sender);
         {
-            create_submarket<SUI>(scenario);
-        };
-
-        // Create USDC Submarket.
-        test_scenario::next_tx(scenario, sender);
-        {
-            create_submarket<USDC>(scenario);
+            create_submarkets<SUI, USDC>(scenario);
         };
 
         // Deposit to SUI Submarket.
@@ -136,22 +205,80 @@ module mala::market_test {
         test_scenario::next_tx(scenario, sender);
         {
             let market = test_scenario::take_shared<Pool>(scenario);
-            let borrowed_coin = market::borrow<SUI, USDC>(
-                50,
-                100,
-                &mut market,
-                test_scenario::ctx(scenario)
-            );
-
+            
+            assert!(market::get_unused_col_from_market<USDC>(sender, &market) == 100, 1);
+            assert!(market::get_unused_col_from_market<SUI>(sender, &market) == 100, 1);
+            
+            let borrowed_coin = market::borrow<SUI, USDC>(50, 100, &mut market, test_scenario::ctx(scenario));
             let borrowed_value = coin::value<SUI>(&borrowed_coin);
             
-            //debug::print(&borrowed_value);
-            
             assert!(borrowed_value == 50, 1);
+            assert!(market::get_unused_col_from_market<USDC>(sender, &market) == 0, 1);
+            assert!(market::get_unused_col_from_market<SUI>(sender, &market) == 100, 1);
 
             transfer::transfer(borrowed_coin, sender);
             test_scenario::return_shared(market);
         };
+
+        test_scenario::next_tx(scenario, sender);
+        {
+            let market = test_scenario::take_shared<Pool>(scenario);
+            let borrowed_coin = market::borrow<USDC, SUI>(40, 80, &mut market, test_scenario::ctx(scenario));
+
+            let borrowed_value = coin::value<USDC>(&borrowed_coin);
+            
+            assert!(borrowed_value == 40, 1);
+            assert!(market::get_unused_col_from_market<USDC>(sender, &market) == 0, 1);
+            assert!(market::get_unused_col_from_market<SUI>(sender, &market) == 20, 1);
+
+            transfer::transfer(borrowed_coin, sender);
+            test_scenario::return_shared(market);
+        };
+
+        test_scenario::end(scenario_val);
+    }
+
+    #[test]
+    #[expected_failure]
+    public fun test_borrow_more_than_collateral() {
+        let sender = @0xBAAB;
+        let scenario_val = test_scenario::begin(sender);
+        
+        let scenario = &mut scenario_val;
+        {
+            market::create_pool(test_scenario::ctx(scenario));
+        };
+
+        test_scenario::next_tx(scenario, sender);
+        {
+            create_submarkets<SUI, USDC>(scenario);
+        };
+
+        // Deposit to SUI Submarket.
+        test_scenario::next_tx(scenario, sender);
+        {
+            deposit_coin_into_latest_market<SUI>(scenario, 100);
+        };
+
+        // Deposit to USDC Submarket.
+        test_scenario::next_tx(scenario, sender);
+        {
+            deposit_coin_into_latest_market<USDC>(scenario, 100);
+        };
+
+        test_scenario::next_tx(scenario, sender);
+        {
+            let market = test_scenario::take_shared<Pool>(scenario);
+            
+            assert!(market::get_unused_col_from_market<USDC>(sender, &market) == 100, 1);
+            assert!(market::get_unused_col_from_market<SUI>(sender, &market) == 100, 1);
+            
+            let borrowed_coin = market::borrow<SUI, USDC>(51, 100, &mut market, test_scenario::ctx(scenario));
+
+            transfer::transfer(borrowed_coin, sender);
+            test_scenario::return_shared(market);
+        };
+        
         test_scenario::end(scenario_val);
     }
 
@@ -195,6 +322,13 @@ module mala::market_test {
     fun create_submarket<T>(scenario: &mut Scenario) {
         let market = test_scenario::take_shared<Pool>(scenario);
         market::create_sub_market<T>(&mut market, test_scenario::ctx(scenario));
+        test_scenario::return_shared(market);
+    }
+
+    fun create_submarkets<T, V>(scenario: &mut Scenario) {
+        let market = test_scenario::take_shared<Pool>(scenario);
+        market::create_sub_market<T>(&mut market, test_scenario::ctx(scenario));
+        market::create_sub_market<V>(&mut market, test_scenario::ctx(scenario));
         test_scenario::return_shared(market);
     }
 }

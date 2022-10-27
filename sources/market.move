@@ -90,7 +90,7 @@ module mala::market {
 
     public entry fun deposit_collateral<T>(
         market: &mut Pool, collateral: Coin<T>, ctx: &mut TxContext
-    ) {
+    ){
         let sub_market_id = vec_map::get(&market.submarket_ids, &type_name::get<T>());
         let sub_market = dynamic_field::borrow_mut<ID, SubMarket<T>>(
             &mut market.id,
