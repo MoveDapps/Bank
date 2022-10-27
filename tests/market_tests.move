@@ -283,6 +283,58 @@ module mala::market_test {
     }
 
     #[test]
+    public fun test_borrow_record() {
+        let sender = @0xBAAB;
+        let scenario_val = test_scenario::begin(sender);
+        
+        let scenario = &mut scenario_val;
+        {
+            market::create_pool(test_scenario::ctx(scenario));
+        };
+
+        test_scenario::next_tx(scenario, sender);
+        {
+            create_submarkets<SUI, USDC>(scenario);
+        };
+
+        // Deposit to SUI Submarket.
+        test_scenario::next_tx(scenario, sender);
+        {
+            deposit_coin_into_latest_market<SUI>(scenario, 100);
+        };
+
+        // Deposit to USDC Submarket.
+        test_scenario::next_tx(scenario, sender);
+        {
+            deposit_coin_into_latest_market<USDC>(scenario, 100);
+        };
+
+        test_scenario::next_tx(scenario, sender);
+        {
+            let market = test_scenario::take_shared<Pool>(scenario);
+            assert!(market::get_borrow_records_length(&market) == 0, 1);
+            
+            let borrowed_coin = market::borrow<SUI, USDC>(1, 2, &mut market, test_scenario::ctx(scenario));
+            transfer::transfer(borrowed_coin, sender);
+            assert!(market::get_borrow_records_length(&market) == 1, 1);
+
+            // Multiple borrows of the same type and by the same sender creates 1 borrow record.
+            let borrowed_coin = market::borrow<SUI, USDC>(1, 2, &mut market, test_scenario::ctx(scenario));
+            transfer::transfer(borrowed_coin, sender);
+            assert!(market::get_borrow_records_length(&market) == 1, 1);
+
+            // Different borrow pair creates a new borrow record.
+            let borrowed_coin = market::borrow<USDC, SUI>(1, 2, &mut market, test_scenario::ctx(scenario));
+            transfer::transfer(borrowed_coin, sender);
+            assert!(market::get_borrow_records_length(&market) == 2, 1);
+
+            test_scenario::return_shared(market);
+        };
+
+        test_scenario::end(scenario_val);
+    }
+
+    #[test]
     #[expected_failure(abort_code = 1)]
     public fun test_deposit_fails_for_invalid_submarket() {
         let sender = @0xBAAB;

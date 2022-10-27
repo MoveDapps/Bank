@@ -256,6 +256,11 @@ module mala::market {
         }
     }
 
+    #[test_only]
+    public fun get_borrow_records_length(pool : &Pool) : u64 {
+        vec_map::size<vector<u8>, ID>(&pool.borrow_record_ids)
+    }
+
     public fun get_unused_col<T>(sender: address, sub_market: &SubMarket<T>) : u64 {
         // Return immediately if sender doesn't have a collateral is this sub market.
         if(!vec_map::contains(&sub_market.collaterals, &sender)) {
