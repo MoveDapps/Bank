@@ -1,13 +1,17 @@
 module mala::market {
     use std::vector::{Self};
+    use std::bcs::{Self};
+    use std::ascii::{Self};
+    use std::type_name::{Self, TypeName};
 
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
     use sui::object::{Self, ID, UID};
     use sui::balance::{Self, Balance};
     use sui::coin::{Self, Coin};
-    use sui::vec_set::{Self, VecSet};
     use sui::vec_map::{Self, VecMap};
+
+    use sui::dynamic_object_field as dynamic_field;
 
     use mala::calculator::{Self};
 
@@ -16,11 +20,12 @@ module mala::market {
     struct Pool has key {
         id: UID,
         admin_address: address,
-        submarket_ids: VecSet<ID>,
-        borrow_record_ids: vector<ID>
+        // Only one submarket allowed per coin type.
+        submarket_ids: VecMap<TypeName, ID>,
+        borrow_record_ids: VecMap<vector<u8>, ID>
     }
 
-    struct SubMarket<phantom T> has key {
+    struct SubMarket<phantom T> has key, store {
         id: UID,
         balance: Balance<T>,
         collaterals: VecMap<address, ColData>
@@ -32,8 +37,9 @@ module mala::market {
         utilized: u64
     }
 
+    // TODO: convert borrow record to top level object after dynamic loading support. (e.g. no store cap, only key)
     // Borrow records to run liquidation against. To be stored in markets.
-    struct BorrowRecord<phantom B, phantom C> has key {
+    struct BorrowRecord<phantom B, phantom C> has key, store {
         id: UID,
         borrower: address,
         col_amount: u64,
@@ -54,8 +60,8 @@ module mala::market {
         let market = Pool{
             id: object::new(ctx),
             admin_address: tx_context::sender(ctx),
-            submarket_ids: vec_set::empty(),
-            borrow_record_ids: vector::empty()
+            submarket_ids: vec_map::empty(),
+            borrow_record_ids: vec_map::empty()
         };
         
         // Share market globally, so that anyone can deposit or borrow.
@@ -72,20 +78,24 @@ module mala::market {
             collaterals: vec_map::empty()
         };
 
-        // SubMarket objects are owned by Market objects.
-        vec_set::insert(&mut market.submarket_ids, object::id(&sub_market));
+        // This will error out if same type is attempted twice.
+        vec_map::insert(&mut market.submarket_ids, type_name::get<T>(), object::id(&sub_market));
         // Transfer the Submarket ownership to Market.
-        transfer::share_object(sub_market);
-        
-        // TODO - change it to transfer to object
-        // transfer::transfer_to_object(sub_market, market);
+        dynamic_field::add(
+            &mut market.id,
+            object::id(&sub_market),
+            sub_market
+        );
     }
 
     public entry fun deposit_collateral<T>(
-        market: &mut Pool, sub_market: &mut SubMarket<T>, collateral: Coin<T>, ctx: &mut TxContext
-    ) {
-        // Check if SubMarket is owned by Market.
-        check_child(market, sub_market);
+        market: &mut Pool, collateral: Coin<T>, ctx: &mut TxContext
+    ){
+        let sub_market_id = vec_map::get(&market.submarket_ids, &type_name::get<T>());
+        let sub_market = dynamic_field::borrow_mut<ID, SubMarket<T>>(
+            &mut market.id,
+            *sub_market_id
+        );
 
         let collateral_balance = coin::into_balance(collateral);
         let collateral_value = balance::value(&collateral_balance);
@@ -93,17 +103,29 @@ module mala::market {
         assert!(collateral_value > 0, EValidCollateralOnly);
 
         balance::join(&mut sub_market.balance, collateral_balance);
-        add_col_value(&mut sub_market.collaterals, tx_context::sender(ctx), collateral_value);
+        add_col_value(
+            &mut sub_market.collaterals,
+            tx_context::sender(ctx),
+            collateral_value
+        );
     }
 
     // B type coin will be borrowed against C collateral.
     public fun borrow<B, C>(
-        bor_amount: u64, col_amount: u64,
-        bor_market: &mut SubMarket<B>, col_market: &mut SubMarket<C>, market: &mut Pool, ctx: &mut TxContext
-    ) : Coin<B> {
-        // Check if submarkets are owned by market.
-        check_child(market, bor_market);
-        check_child(market, col_market);
+        bor_amount: u64, col_amount: u64, market: &mut Pool, ctx: &mut TxContext
+    ): Coin<B> {
+        let bor_market_id = vec_map::get(&mut market.submarket_ids, &type_name::get<B>());
+        let col_market_id = vec_map::get(&mut market.submarket_ids, &type_name::get<C>());
+
+        let bor_market = dynamic_field::remove<ID, SubMarket<B>>(
+            &mut market.id,
+            *bor_market_id
+        );
+
+        let col_market = dynamic_field::borrow_mut<ID, SubMarket<C>>(
+            &mut market.id,
+            *col_market_id
+        );
 
         // Check if borrow market has enough funds.
         assert!(balance::value(&bor_market.balance) >= bor_amount, EBorrowTooBig);
@@ -117,23 +139,66 @@ module mala::market {
         assert!(col_amount >= minimum_required_col, ENotEnoughCollateral);
 
         record_new_utilization(&mut col_market.collaterals, &tx_context::sender(ctx), col_amount);
- 
-        // Create borrow record for liquidation bot.
-        let borrow_record = BorrowRecord<B, C> {
-            id: object::new(ctx),
-            borrower: tx_context::sender(ctx),
-            col_amount: col_amount,
-            bor_amount: bor_amount
-        };
+
+        // Build key with address + type of B + type of C
+        let address_bytes = bcs::to_bytes<address>(&tx_context::sender(ctx));
+        let borrow_record_type_string = type_name::into_string(type_name::get<BorrowRecord<B, C>>());
+
+        //debug::print(&ascii::all_characters_printable(&borrow_record_type_string));
+        //debug::print(&borrow_record_type_string);
+
+        let borrow_record_type = ascii::into_bytes(borrow_record_type_string);
+
+        vector::append<u8>(&mut address_bytes, borrow_record_type);
 
         // The borrow record should be owned by and recorded inside the market.
-        vector::push_back(&mut market.borrow_record_ids, object::uid_to_inner(&borrow_record.id));
-        
-        // TODO - convert it to transfer_to_object
-        transfer::share_object(borrow_record);
-        //transfer::transfer_to_object(borrow_record, market);
+        if(!vec_map::contains(&market.borrow_record_ids, &address_bytes)) {
+            // Create borrow record for liquidation bot.
+            let borrow_record = BorrowRecord<B, C> {
+                id: object::new(ctx),
+                borrower: tx_context::sender(ctx),
+                col_amount: col_amount,
+                bor_amount: bor_amount
+            };
 
-        coin::take(&mut bor_market.balance, bor_amount, ctx)
+            vec_map::insert(
+                &mut market.borrow_record_ids,
+                address_bytes,
+                object::uid_to_inner(&borrow_record.id)
+            );
+
+            dynamic_field::add(
+                &mut market.id,
+                object::id(&borrow_record),
+                borrow_record
+            );
+        } else {
+            // Increase borrow and col amount for an existing <B, C> borrow record pair.
+
+            let borrow_record_id = vec_map::get(
+                &market.borrow_record_ids,
+                &address_bytes
+            );
+
+            let borrow_record = dynamic_field::borrow_mut<ID, BorrowRecord<B,C>>(
+                &mut market.id,
+                *borrow_record_id
+            );
+
+            borrow_record.bor_amount = borrow_record.bor_amount + bor_amount;
+            borrow_record.col_amount = borrow_record.col_amount + col_amount;
+        };
+
+        let borrowed_coin = coin::take(&mut bor_market.balance, bor_amount, ctx);
+
+        // As borrow market was removed.
+        dynamic_field::add(
+            &mut market.id,
+            object::id(&bor_market),
+            bor_market
+        );
+
+        borrowed_coin
     }
 
     /* === Utils === */
@@ -141,15 +206,12 @@ module mala::market {
         assert!(market.admin_address == sender_address, EAdminOnly);
     }
 
-    public fun check_child<T>(market: &Pool, sub_market: &SubMarket<T>) {
-        assert!(
-            vec_set::contains(&market.submarket_ids, &object::id(sub_market)) == true,
-            EChildObjectOnly
-        )
-    }
-
     // Adds to collateral gross value.
-    fun add_col_value(collaterals: &mut VecMap<address, ColData>, sender: address, value: u64) {
+    fun add_col_value(
+        collaterals: &mut VecMap<address, ColData>,
+        sender: address,
+        value: u64
+    ){
         if(!vec_map::contains(collaterals, &sender)) {
             let col_data = ColData{gross: 0, utilized: 0};
             vec_map::insert(collaterals, sender, col_data);
@@ -159,7 +221,11 @@ module mala::market {
         col_data.gross = col_data.gross + value;
     }
 
-    fun record_new_utilization(collaterals: &mut VecMap<address, ColData>, sender: &address, value: u64) {
+    fun record_new_utilization(
+        collaterals: &mut VecMap<address, ColData>,
+        sender: &address,
+        value: u64
+    ){
         assert!(vec_map::contains(collaterals, sender) == true, EInvalidSender);
         let col_data = vec_map::get_mut(collaterals, sender);
         
@@ -168,7 +234,14 @@ module mala::market {
     }
 
     /* === Reads === */
-    public fun get_unused_col<T>(sender: address, sub_market: &SubMarket<T>) : u64 {
+    #[test_only]
+    public fun get_unused_col_from_market<T>(sender: address, market: &Pool) : u64 {
+        let sub_market_id = vec_map::get(&market.submarket_ids, &type_name::get<T>());
+        let sub_market = dynamic_field::borrow<ID, SubMarket<T>>(
+            & market.id,
+            *sub_market_id
+        );
+
         // Return immediately if sender doesn't have a collateral is this sub market.
         if(!vec_map::contains(&sub_market.collaterals, &sender)) {
             0u64
@@ -184,7 +257,22 @@ module mala::market {
     }
 
     #[test_only]
-    public fun get_submarket_list(market : &Pool) : &VecSet<ID> {
-        &market.submarket_ids
+    public fun get_borrow_records_length(pool : &Pool) : u64 {
+        vec_map::size<vector<u8>, ID>(&pool.borrow_record_ids)
+    }
+
+    public fun get_unused_col<T>(sender: address, sub_market: &SubMarket<T>) : u64 {
+        // Return immediately if sender doesn't have a collateral is this sub market.
+        if(!vec_map::contains(&sub_market.collaterals, &sender)) {
+            0u64
+        } else {
+            let col_data = vec_map::get(&sub_market.collaterals, &sender);
+        
+            assert!(col_data.gross >= col_data.utilized, EInvalidColData);
+            assert!(col_data.gross > 0, EInvalidColData);
+            assert!(col_data.utilized >= 0, EInvalidColData);
+
+            col_data.gross - col_data.utilized
+        }
     }
 }
