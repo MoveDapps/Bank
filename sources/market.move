@@ -55,6 +55,8 @@ module mala::market {
     const ECollateralTooBig: u64 = 6;
     const ENotEnoughCollateral: u64 = 7;
     const EInvalidSender: u64 = 8;
+    const ERepayingForWrongBorrow: u64 = 9;
+    const ERepayTooSmall: u64 = 10;
 
     public entry fun create_pool(ctx: &mut TxContext) {
         let market = Pool{
@@ -112,7 +114,10 @@ module mala::market {
 
     // B type coin will be borrowed against C collateral.
     public fun borrow<B, C>(
-        bor_amount: u64, col_amount: u64, market: &mut Pool, ctx: &mut TxContext
+        bor_amount: u64,
+        col_amount: u64,
+        market: &mut Pool,
+        ctx: &mut TxContext
     ): Coin<B> {
         let bor_market_id = vec_map::get(&mut market.submarket_ids, &type_name::get<B>());
         let col_market_id = vec_map::get(&mut market.submarket_ids, &type_name::get<C>());
@@ -141,15 +146,7 @@ module mala::market {
         record_new_utilization(&mut col_market.collaterals, &tx_context::sender(ctx), col_amount);
 
         // Build key with address + type of B + type of C
-        let address_bytes = bcs::to_bytes<address>(&tx_context::sender(ctx));
-        let borrow_record_type_string = type_name::into_string(type_name::get<BorrowRecord<B, C>>());
-
-        //debug::print(&ascii::all_characters_printable(&borrow_record_type_string));
-        //debug::print(&borrow_record_type_string);
-
-        let borrow_record_type = ascii::into_bytes(borrow_record_type_string);
-
-        vector::append<u8>(&mut address_bytes, borrow_record_type);
+        let address_bytes = build_borrow_record_bytes<B, C>(ctx);
 
         // The borrow record should be owned by and recorded inside the market.
         if(!vec_map::contains(&market.borrow_record_ids, &address_bytes)) {
@@ -201,9 +198,103 @@ module mala::market {
         borrowed_coin
     }
 
+    public entry fun repay<B, C>(
+        repay_coin : Coin<B>,
+        col_to_release : u64,
+        market: &mut Pool,
+        ctx: &mut TxContext
+    ){
+        let repay_balance = coin::into_balance(repay_coin);
+        let repay_value = balance::value(&repay_balance);
+
+        // Grab the corresponding borrow record.
+        // see if col_to_release is released, if borrow_record would be underwater.
+
+        let borrow_record_id = vec_map::get(
+            &market.borrow_record_ids,
+            &build_borrow_record_bytes<B, C>(ctx)
+        );
+
+        let borrow_record = dynamic_field::borrow<ID, BorrowRecord<B,C>>(
+            &market.id,
+            *borrow_record_id
+        );
+
+        assert!(borrow_record.borrower == tx_context::sender(ctx), ERepayingForWrongBorrow);
+
+        let borrow_after_repay = borrow_record.bor_amount - repay_value;
+        let col_after_repay = borrow_record.col_amount - col_to_release;
+
+        assert!(is_healthy<B, C>(borrow_after_repay, col_after_repay) == true, ERepayTooSmall);
+
+        // The numbers make sense, deposit the coin and release the collateral.
+
+        let borrow_submarket_id = vec_map::get(
+            &market.submarket_ids,
+            &type_name::get<B>()
+        );
+        let borrow_submarket = dynamic_field::remove<ID, SubMarket<B>>(
+            &mut market.id,
+            *borrow_submarket_id
+        );
+
+        let col_submarket_id = vec_map::get(
+            &market.submarket_ids,
+            &type_name::get<C>()
+        );
+        let col_submarket = dynamic_field::remove<ID, SubMarket<C>>(
+            &mut market.id,
+            *col_submarket_id
+        );
+
+
+        record_repay(
+            &mut col_submarket.collaterals,
+            &tx_context::sender(ctx),
+            repay_value
+        );
+
+        coin::put<B>(
+            &mut borrow_submarket.balance,
+            coin::from_balance(repay_balance, ctx)
+        );
+
+        // Add the submarkets back to the market.add
+        dynamic_field::add(
+            &mut market.id,
+            object::id(&borrow_submarket),
+            borrow_submarket
+        );
+        dynamic_field::add(
+            &mut market.id,
+            object::id(&col_submarket),
+            col_submarket
+        );
+    }
+
     /* === Utils === */
     fun check_admin(market: &Pool, sender_address: address) {
         assert!(market.admin_address == sender_address, EAdminOnly);
+    }
+
+    // Check if a borrow_amount is healthy for a collateral amount.
+    // For the current market conditions.
+    fun is_healthy<B, C>(bor_amount: u64, col_amount: u64) : bool {
+        let min_col = calculator::required_collateral_amount<B, C>(bor_amount);
+        return col_amount >= min_col
+    }
+
+    fun build_borrow_record_bytes<B, C>(ctx: &mut TxContext) : vector<u8> {
+        let address_bytes = bcs::to_bytes<address>(&tx_context::sender(ctx));
+        let borrow_record_type_string = type_name::into_string(type_name::get<BorrowRecord<B, C>>());
+
+        //debug::print(&ascii::all_characters_printable(&borrow_record_type_string));
+        //debug::print(&borrow_record_type_string);
+
+        let borrow_record_type = ascii::into_bytes(borrow_record_type_string);
+        vector::append<u8>(&mut address_bytes, borrow_record_type);
+
+        address_bytes
     }
 
     // Adds to collateral gross value.
@@ -231,6 +322,17 @@ module mala::market {
         
         assert!(col_data.gross >= value + col_data.utilized, ECollateralTooBig);
         col_data.utilized = col_data.utilized + value;
+    }
+
+    fun record_repay(
+        collaterals: &mut VecMap<address, ColData>,
+        sender: &address,
+        value: u64
+    ){
+        let col_data = vec_map::get_mut(collaterals, sender);
+        
+        assert!(col_data.utilized >= value, ECollateralTooBig);
+        col_data.utilized = col_data.utilized - value;
     }
 
     /* === Reads === */
