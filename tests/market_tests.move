@@ -10,7 +10,7 @@ module mala::market_test {
     use sui::vec_map::{Self};
 
     //use sui::object::{Self};
-    use std::debug;
+    //use std::debug;
 
     #[test]
     public fun market_creation() {
@@ -243,9 +243,7 @@ module mala::market_test {
             &test_scenario::next_tx(scenario, sender)
         );
 
-        let (coin_object, owner) = vec_map::get_entry_by_idx(&effects, 0);
-        debug::print(coin_object);
-
+        let (_, owner) = vec_map::get_entry_by_idx(&effects, 0);
         assert!(*owner == sender, 1);
 
         test_scenario::next_tx(scenario, sender);
@@ -255,9 +253,9 @@ module mala::market_test {
             assert!(market::get_unused_col_from_market<USDC>(sender, &market) == 98, 1);
             assert!(market::get_unused_col_from_market<SUI>(sender, &market) == 100, 1);
 
-            // TODO
-            // Need to figure out how to convert ID to coin object.
-            //market::repay<SUI, USDC>(coin_object, 2, &mut market, test_scenario::ctx(scenario));
+            let repay_coin = coin::mint_for_testing<SUI>(1, test_scenario::ctx(scenario));
+
+            market::repay<SUI, USDC>(repay_coin, 2, &mut market, test_scenario::ctx(scenario));
 
             assert!(market::get_unused_col_from_market<USDC>(sender, &market) == 100, 1);
             assert!(market::get_unused_col_from_market<SUI>(sender, &market) == 100, 1);

@@ -222,14 +222,15 @@ module mala::market {
         );
 
         assert!(borrow_record.borrower == tx_context::sender(ctx), ERepayingForWrongBorrow);
+        assert!(borrow_record.bor_amount >= repay_value, 1);
+        assert!( borrow_record.col_amount >= col_to_release, 1);
 
         let borrow_after_repay = borrow_record.bor_amount - repay_value;
         let col_after_repay = borrow_record.col_amount - col_to_release;
 
-        assert!(is_healthy<B, C>(borrow_after_repay, col_after_repay) == true, ERepayTooSmall);
+        assert!(is_healthy<B, C>(move borrow_after_repay, move col_after_repay) == true, ERepayTooSmall);
 
         // The numbers make sense, deposit the coin and release the collateral.
-
         let borrow_submarket_id = vec_map::get(
             &market.submarket_ids,
             &type_name::get<B>()
@@ -252,9 +253,8 @@ module mala::market {
         record_repay(
             &mut col_submarket.collaterals,
             &tx_context::sender(ctx),
-            repay_value
+            col_to_release
         );
-
         coin::put<B>(
             &mut borrow_submarket.balance,
             coin::from_balance(repay_balance, ctx)
