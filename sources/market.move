@@ -118,7 +118,7 @@ module mala::market {
         col_amount: u64,
         market: &mut Pool,
         ctx: &mut TxContext
-    ): Coin<B> {
+    ){
         let bor_market_id = vec_map::get(&mut market.submarket_ids, &type_name::get<B>());
         let col_market_id = vec_map::get(&mut market.submarket_ids, &type_name::get<C>());
 
@@ -195,7 +195,8 @@ module mala::market {
             bor_market
         );
 
-        borrowed_coin
+        // Transfer the borrowed coin to sender. No fancy business.
+        transfer::transfer(borrowed_coin, tx_context::sender(ctx));
     }
 
     public entry fun repay<B, C>(
@@ -287,9 +288,6 @@ module mala::market {
     fun build_borrow_record_bytes<B, C>(ctx: &mut TxContext) : vector<u8> {
         let address_bytes = bcs::to_bytes<address>(&tx_context::sender(ctx));
         let borrow_record_type_string = type_name::into_string(type_name::get<BorrowRecord<B, C>>());
-
-        //debug::print(&ascii::all_characters_printable(&borrow_record_type_string));
-        //debug::print(&borrow_record_type_string);
 
         let borrow_record_type = ascii::into_bytes(borrow_record_type_string);
         vector::append<u8>(&mut address_bytes, borrow_record_type);
