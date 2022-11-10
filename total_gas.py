@@ -18,4 +18,4 @@ total_gas = 0
 for gas in output:
     total_gas += int(gas['balance']['value'])
 
-print(f"{RED}My SUI coins available...{total_gas} {NC}")
+print("{}My total SUI coins...{:,}{}".format(RED,total_gas,NC))
