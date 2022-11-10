@@ -137,7 +137,7 @@ module mala::market {
     }
 
     // B type coin will be borrowed against C collateral.
-    public fun borrow<B, C>(
+    public entry fun borrow<B, C>(
         bor_amount: u64,
         col_amount: u64,
         market: &mut Pool,
