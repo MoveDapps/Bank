@@ -29,4 +29,4 @@ The vision of SUI ecosystem of not just providing on-chain use cases but real-wo
 
 ---
 
-***Author: Bidhan Roy. In some roles in my career, I led KYC/Identity team for Cash App, ML infra team for Amazon Alexa & Instacart. Currently, I lead the ecosystem engineering initiatives for decentralized storage protocol Arweave.***
+***Author: Bidhan Roy. In some roles in my career, I led KYC/Identity team for Cash App, ML infra team for Amazon Alexa & Instacart.***
