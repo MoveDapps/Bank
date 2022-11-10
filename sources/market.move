@@ -14,7 +14,6 @@ module mala::market {
     use sui::dynamic_object_field as dynamic_field;
 
     use mala::calculator::{Self};
-
     //use std::debug;
 
     struct Pool has key {
@@ -110,6 +109,31 @@ module mala::market {
             tx_context::sender(ctx),
             collateral_value
         );
+    }
+
+    public entry fun withdraw<T>(
+        market: &mut Pool,
+        amount: u64,
+        ctx: &mut TxContext
+    ){
+        let withdraw_market_id = vec_map::get(&mut market.submarket_ids, &type_name::get<T>());
+        let withdraw_market = dynamic_field::borrow_mut<ID, SubMarket<T>>(
+            &mut market.id,
+            *withdraw_market_id
+        );
+
+        let unused_col = get_unused_col(tx_context::sender(ctx), withdraw_market);
+        assert!(amount <= unused_col, 1);
+        
+        let withdrawed_coin = coin::take(&mut withdraw_market.balance, amount, ctx);
+
+        subtract_col_value(
+            &mut withdraw_market.collaterals,
+            tx_context::sender(ctx),
+            amount
+        );
+        
+        transfer::transfer(withdrawed_coin, tx_context::sender(ctx));
     }
 
     // B type coin will be borrowed against C collateral.
@@ -310,6 +334,15 @@ module mala::market {
         col_data.gross = col_data.gross + value;
     }
 
+    fun subtract_col_value(
+        collaterals: &mut VecMap<address, ColData>,
+        sender: address,
+        value: u64
+    ){
+        let col_data = vec_map::get_mut(collaterals, &sender);
+        col_data.gross = col_data.gross - value;
+    }
+
     fun record_new_utilization(
         collaterals: &mut VecMap<address, ColData>,
         sender: &address,
@@ -349,7 +382,7 @@ module mala::market {
             let col_data = vec_map::get(&sub_market.collaterals, &sender);
         
             assert!(col_data.gross >= col_data.utilized, EInvalidColData);
-            assert!(col_data.gross > 0, EInvalidColData);
+            assert!(col_data.gross >= 0, EInvalidColData);
             assert!(col_data.utilized >= 0, EInvalidColData);
 
             col_data.gross - col_data.utilized
