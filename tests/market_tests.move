@@ -61,7 +61,7 @@ module mala::market_test {
     }
 
     #[test]
-    public fun test_deposit() {
+    public fun test_deposit_withdraw() {
         let sender = @0xBAAB;
 
         // Create Market.
@@ -78,6 +78,23 @@ module mala::market_test {
             let market = test_scenario::take_shared<Pool>(scenario);
             let unused_col = market::get_unused_col_from_market<SUI>(sender, &market);
             assert!(unused_col == 100, 1);
+            test_scenario::return_shared(market);
+        };
+
+        // Test withdraw.
+        test_scenario::next_tx(scenario, sender);
+        {
+            let market = test_scenario::take_shared<Pool>(scenario);
+            market::withdraw<SUI>(&mut market, 100, test_scenario::ctx(scenario));
+            test_scenario::return_shared(market);
+        };
+
+        // Test that the withdraw settled in the previous transaction.
+        test_scenario::next_tx(scenario, sender);
+        {
+            let market = test_scenario::take_shared<Pool>(scenario);
+            let unused_col = market::get_unused_col_from_market<SUI>(sender, &market);
+            assert!(unused_col == 0, 1);
             test_scenario::return_shared(market);
         };
         test_scenario::end(scenario_val);
